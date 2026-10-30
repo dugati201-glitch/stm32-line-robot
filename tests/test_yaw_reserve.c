@@ -30,7 +30,7 @@ void test_entry(void) {
         CHECK(s.mode==CONTROL_TRACK && s.fault==FAULT_NONE);
         CHECK(sign>0?s.right<0:s.left<0);
         CHECK(sign>0?s.left>0:s.right>0);
-        CHECK(s.left+s.right>0 && !s.brake_count && s.target==bases[b]);
+        CHECK(s.left+s.right>0 && !s.brake_count && s.target==(bases[b]>49?49:bases[b]));
     }
     /* Last known corner alone cannot force a timed signed output on valid
      * center/soft-curve data; D continues to damp a returning line. */
@@ -71,7 +71,8 @@ void test_entry(void) {
         Warm(&s,&p,55);
         for(i=0;i<20;++i) {
             Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
-            CHECK(s.corner_gain>0 && (sign>0?s.right<0:s.left<0));
+            CHECK(s.corner_gain>0 && s.left>=-240 && s.right>=-240);
+            if(i>=1) CHECK(sign>0?s.right<0:s.left<0);
         }
         /* Startup/low Base and low current Max never inherit signed reserve. */
         Warm(&s,&p,30); Cue(&s,&p,sign,dt);
@@ -98,10 +99,10 @@ void test_entry(void) {
         p.base_percent=20;
         Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
         CHECK(s.left>=0 && s.right>=0);
-        /* Expired cue or changing side cannot retain the old extra gain. */
+        /* B46 current outer observations refresh pending intent beyond the old TTL. */
         Warm(&s,&p,55); Cue(&s,&p,sign,dt);
         for(i=0;i<220/dt+1;++i) Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
-        CHECK(!s.corner_pending_ms && !s.drive_corner_dir && s.corner_gain>0 && (sign>0?s.right<0:s.left<0));
+        CHECK(s.corner_pending_ms && s.corner_pending_dir==sign && s.corner_gain>0 && (sign>0?s.right<0:s.left<0));
         Warm(&s,&p,55); Cue(&s,&p,sign,dt);
         Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
         before=s.recovery_ms;
@@ -118,7 +119,7 @@ void test_entry(void) {
     for(sign=-1;sign<=1;sign+=2) {
         Warm(&s,&p,55);
         Control_Step(&s,&p,sign*2500,1,sign>0?0xF8:0x1F,2);
-        CHECK(!s.corner_pending_ms && (sign>0?s.right<0:s.left<0));
+        CHECK(s.corner_pending_ms && (sign>0?s.right<0:s.left<0));
         Control_Step(&s,&p,sign*2500,1,sign>0?0xF8:0x1F,2);
         CHECK(s.corner_pending_ms && s.corner_pending_dir==sign);
         Control_Step(&s,&p,sign*2500,1,sign>0?0xF8:0x1F,2);

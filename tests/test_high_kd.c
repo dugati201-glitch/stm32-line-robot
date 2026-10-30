@@ -70,10 +70,10 @@ void test_entry(void)
     CHECK(s.speed>43.479f && s.speed<43.481f && s.target==55);
     Seed(&s,&p,0.9f,1); s.speed=43; s.last_error=0; s.derivative=100;
     Control_Step(&s,&p,0,1,0x18,2);
-    CHECK(s.speed>43.439f && s.speed<43.441f); /* Raw D is not calm yet. */
+    CHECK(s.speed>43.519f && s.speed<43.521f); /* Raw D is not calm yet. */
     Seed(&s,&p,0.9f,1); s.speed=43; s.last_error=0;
     Control_Step(&s,&p,0,1,0x3C,2);
-    CHECK(s.speed>43.439f && s.speed<43.441f); /* Broad patch is not enough. */
+    CHECK(s.speed>43.519f && s.speed<43.521f); /* Broad patch is not enough. */
     /* Existing direct search, Max and antiwindup remain authoritative. */
     Seed(&s,&p,0.9f,1); p.kp=100; p.ki=2;
     for(i=0;i<8;++i) Control_Step(&s,&p,2000,1,0xF8,2);

@@ -1,3 +1,10 @@
+## ADR-056 — B46 giảm target theo error và nối tiếp damping trên nền B45
+
+Theo owner, B45 đạt 15,2s ổn định 5/5 lượt. Giữ nguyên B45 làm baseline; dùng error liên tục để giảm target từ Base về sàn 49% trong TRACK, không dùng timer chờ Cruise. Không áp dụng luật giảm target này trong ALIGN. Base thấp hơn sàn được giữ thấp; Base 60 vẫn vào đầu cua nhanh hơn Base 55 theo công thức được yêu cầu.
+
+Chốt hướng từ outer grip trước khi mất line để bỏ ForwardHold bổ sung; bảo toàn D qua centered handoff, chỉ reset lần đầu khi bắt lại line. Tăng cặp swing lên 66/−24 và 70/−33; giữ GAP, timeout, driver guard, Flash layout và toàn bộ phần cứng của B45. Test commands và emulator không chứng minh thời gian vòng hoặc lực bám trên xe; B46 cần so sánh thực nghiệm với B45.
+
+
 ## ADR-055 — B45 khôi phục B43 và cấp grip theo mắt ngoài hiện tại
 
 Sau phản hồi B44 16,3s/B43 15,5s, restore B43 trước mọi sửa B45. Giữ defaults55/85,12/0/0,9, một cặp recovery cho nonwhite64/−22 và white68/−30, không tight/branch/gain trong ALIGN, không Cruise.

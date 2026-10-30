@@ -1,3 +1,19 @@
+CURRENT B46 (2026-10-30): owner measured B45 15.2s stable5/5, Base50 corners
+cleaner than55. B45 commitbec27a6 is the baseline; backup/source/HEX/hash in
+backups/B45-before-B46-20261030. Read docs/curve-slow-b46.md.
+Defaults55/85,12/0/.9. TRACK target falls4.5pp/pitch aboveabs(e).55 tofloor49;
+low targets stay low. Offset slowing uses600pp/s; centered target returns Base
+without stable/guard delay. Accel220, post-exit260 below55; earned fast-exit240
+retained. Outer-grip now latches current pending side200ms and RememberSide,
+so next loss goes TURN immediately. Keep strict returning reserve release.
+ALIGN has no tight/branch/gain/curve slow; retain first reacquire D reset but
+remove second reset on centered completion. Swing near66/-24, white70/-33,
+carry=min(previous,55,Max). Keep B45 estimator/GAP/timeout/motor/SWD/Flash.
+Full tests106222 integration+12857 standalone ARM assertions+26Python pass;
+new B46 comparator1736 cases. Keil0errors/0warnings; HEX SHA256
+9B5599FBE2E0C7D54405FFADC4CE89554C20882B301837DFAA2F73A7375C240E.
+B46 not physically lap-tested; earlier CURRENT blocks are history on conflict.
+
 CURRENT B45 (2026-10-30): owner reports B44 regressed16.3s vs B43 15.5s.
 Explicitly restore B43 first, then only requested B45 outer-grip/exit changes.
 Read docs/outer-grip-b45.md. B44 source/HEX/tests/hash backed up in

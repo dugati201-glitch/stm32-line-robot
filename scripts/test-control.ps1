@@ -53,4 +53,5 @@ try {
     & (Join-Path $PSScriptRoot 'test-carve-b41.ps1')
     & (Join-Path $PSScriptRoot 'test-swing-b43.ps1')
     & (Join-Path $PSScriptRoot 'test-outer-grip-b45.ps1')
+    & (Join-Path $PSScriptRoot 'test-curve-slow-b46.ps1')
 } finally { Pop-Location }

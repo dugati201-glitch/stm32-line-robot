@@ -103,7 +103,7 @@ void RunRecoveryTests(void)
     for(i=0;i<6;++i) Control_Step(&s,&p,0,1,0x18,2);
     CHECK(!s.last_side_ms && s.post_turn_dir==-1);
     for(i=0;i<3;++i) Control_Step(&s,&p,0,0,0,2);
-    CHECK(s.mode==CONTROL_TURN && s.turn_dir==-1 && s.recovery_ms==718);
+    CHECK(s.mode==CONTROL_TURN && s.turn_dir==-1 && s.recovery_ms==722);
     /* Fresh opposite line still has authority over the completed-turn direction. */
     for(i=0;i<6;++i) Control_Step(&s,&p,0,1,0x18,2);
     Control_Step(&s,&p,2500,1,0x40,2);
@@ -167,7 +167,7 @@ void RunRecoveryTests(void)
         Control_Step(&s,&p,0,1,0x18,2);
         CHECK(s.mode==CONTROL_ALIGN);
         for(i=0;i<3;++i) Control_Step(&s,&p,0,0,sign>0?0x17:0xE8,2);
-        CHECK(s.mode==CONTROL_TURN && s.turn_dir==-sign && s.recovery_ms==8);
+        CHECK(s.mode==CONTROL_TURN && s.turn_dir==-sign && s.recovery_ms==12);
         for(i=0;i<80;++i) Control_Step(&s,&p,0,0,0,2);
         CHECK(s.left*sign<0 && s.right*sign>0);
         for(i=0;i<6;++i) Control_Step(&s,&p,0,1,0x18,2);
@@ -331,7 +331,7 @@ void RunRecoveryTests(void)
     Warm(&s,&p);
     Control_Step(&s,&p,3000,1,0x80,2);
     Control_Step(&s,&p,0,0,0,2);
-    CHECK(s.mode==CONTROL_PROBE && !s.may_cross_gap && !s.guide_valid);
+    CHECK(s.mode==CONTROL_TURN && !s.may_cross_gap && !s.guide_valid);
     /* Exact white-span boundary: hold through the allowance, then latch Stop. */
     Warm(&s,&p);
     for(i=0;i<CONTROL_GAP_MAX_MS/2U;++i) {

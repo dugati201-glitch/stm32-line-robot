@@ -27,12 +27,12 @@ void test_entry(void) {
         Seed(&s,&p,sign,55,85);
         Control_Step(&s,&p,0,0,0xB8,dt);
         CHECK(s.mode==CONTROL_TURN && s.fault==FAULT_NONE);
-        CHECK(s.left==(sign>0?640:-220) && s.right==(sign>0?-220:640));
-        CHECK(s.target==64 && s.speed==55 && s.left+s.right==420);
+        CHECK(s.left==(sign>0?660:-240) && s.right==(sign>0?-240:660));
+        CHECK(s.target==66 && s.speed==55 && s.left+s.right==420);
         CHECK(s.recovery_ms==dt && !s.brake_count && !s.recovery_arc);
         Control_Step(&s,&p,0,0,0,dt);
-        CHECK(s.left==(sign>0?680:-300) && s.right==(sign>0?-300:680));
-        CHECK(s.target==68 && s.speed==55 && s.left+s.right==380);
+        CHECK(s.left==(sign>0?700:-330) && s.right==(sign>0?-330:700));
+        CHECK(s.target==70 && s.speed==55 && s.left+s.right==370);
         CHECK(s.recovery_ms==2*dt);
         for(i=0;i<15;++i) Control_Step(&s,&p,0,0,0,dt);
         CHECK(s.speed==55 && s.recovery_ms==17*dt);
@@ -42,9 +42,9 @@ void test_entry(void) {
         /* Duty carry must not boost a low-duty approach on rejoin. */
         Seed(&s,&p,sign,5,85);
         Control_Step(&s,&p,0,0,0,dt); CHECK(s.speed==5);
-        Control_Step(&s,&p,0,1,0x18,dt); CHECK(s.speed>5 && s.speed<=5+0.151f*dt);
+        Control_Step(&s,&p,0,1,0x18,dt); CHECK(s.speed>5 && s.speed<=5+0.221f*dt);
         for(j=0;j<7;++j) for(k=0;k<2;++k) {
-            unsigned maximum=maxima[j],outer=k?64:68,inner=k?22:30;
+            unsigned maximum=maxima[j],outer=k?66:70,inner=k?24:33;
             int l,r;
             if(outer>maximum) outer=maximum;
             if(inner>maximum) inner=maximum;
@@ -68,7 +68,7 @@ void test_entry(void) {
         Control_Step(&s,&p,-sign*1500,1,sign>0?0x1F:0xF8,1);
         CHECK(!s.post_turn_ms && !s.recovery_ms && s.corner_pending_dir==-sign);
         Control_Step(&s,&p,0,0,0,1);
-        CHECK(s.turn_dir==-sign && s.left==(-sign>0?680:-300) && s.right==(-sign>0?-300:680));
+        CHECK(s.turn_dir==-sign && s.left==(-sign>0?700:-330) && s.right==(-sign>0?-330:700));
     }
     /* Post-turn center clear is exactly40ms, while mere glimpses cannot renew timeout. */
     Seed(&s,&p,1,48,85); s.mode=CONTROL_TRACK; s.post_turn_ms=200; s.post_turn_dir=1; s.recovery_ms=100;

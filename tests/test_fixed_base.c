@@ -139,7 +139,7 @@ void RunFixedBaseTests(void)
         p.straight_percent=j==0?0:j==1?55:100;
         Control_Start(&s);
         Control_Step(&s,&p,0,1,0x18,2);
-        CHECK(s.speed>0 && s.speed<=0.301f && s.target==55);
+        CHECK(s.speed>0 && s.speed<=0.441f && s.target==55);
         for(i=0;i<800;++i) {
             Control_Step(&s,&p,0,1,0x18,2);
             CHECK(s.target==55 && s.speed<=55 && s.mode==CONTROL_TRACK);
@@ -148,11 +148,11 @@ void RunFixedBaseTests(void)
         CHECK(s.left==550 && s.right==550);
         for(sign=-1;sign<=1;sign+=2) {
             Control_Step(&s,&p,sign*1000,1,sign>0?0x30:0x0C,2);
-            CHECK(s.target==55 && s.mode==CONTROL_TRACK);
+            CHECK(Abs(s.target-52.975f)<0.001f && s.mode==CONTROL_TRACK);
             Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,2);
-            CHECK(s.target==55 && s.mode==CONTROL_TRACK);
+            CHECK(s.target==49 && s.mode==CONTROL_TRACK);
             Control_Step(&s,&p,sign*3500,1,sign>0?0x80:0x01,2);
-            CHECK(s.target==55 && s.mode==CONTROL_TRACK && !s.brake_count);
+            CHECK(s.target==49 && s.mode==CONTROL_TRACK && !s.brake_count);
             CHECK(s.left>=-240 && s.right>=-240 && s.left<=850 && s.right<=850 && s.left+s.right>0);
         }
     }
@@ -167,7 +167,7 @@ void RunFixedBaseTests(void)
         for(i=0;i<10;++i) {
             float before=Abs(s.last_correction);
             Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
-            CHECK(s.mode==CONTROL_TRACK && s.target==55);
+            CHECK(s.mode==CONTROL_TRACK && Abs(s.target-50.725f)<0.001f);
             CHECK(sign*s.last_correction>=18.0f && sign*s.last_correction<=47.191f);
             CHECK(Abs(s.last_correction)<=before+(i<2?10.357f:1.657f) && s.left>=-280 && s.right>=-280 && s.left+s.right>0);
         }
@@ -202,15 +202,15 @@ void RunFixedBaseTests(void)
         CHECK(s.target<=10 && s.left<=100 && s.right<=100);
     }
 
-    /* An unconfirmed side still needs the existing 6 ms loss confirmation. */
+    /* B46 outer grip commits the side before the first white frame. */
     Profile55(&p);
     for(sign=-1;sign<=1;sign+=2) {
         Warm(&s,&p);
         Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,2);
         Control_Step(&s,&p,0,0,0,2);
-        CHECK(s.mode==CONTROL_PROBE);
+        CHECK(s.mode==CONTROL_TURN && s.turn_dir==sign);
         Control_Step(&s,&p,0,0,0,2);
-        CHECK(s.mode==CONTROL_PROBE);
+        CHECK(s.mode==CONTROL_TURN && s.turn_dir==sign);
         Control_Step(&s,&p,0,0,0,2);
         CHECK(s.mode==CONTROL_TURN && s.turn_dir==sign);
     }

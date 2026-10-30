@@ -1,3 +1,6 @@
+> **B46 hiện tại (30/10/2026)**: [Curve slowing](docs/curve-slow-b46.md). Owner xác nhận B45 đạt **15,2s, ổn định 5/5 lượt**, Base 50 vào cua gọn hơn 55. B46 giữ nền B45, defaults 55/85, PID 12/0/0,90; giảm target theo độ lệch, chốt hướng từ mắt ngoài và giữ D qua centered ALIGN. B46 chưa đo thời gian trên xe. Các mục current cũ dưới đây là lịch sử khi có mâu thuẫn.
+
+
 > **B45 hiện tại (30/10/2026)**: [Outer-eye grip](docs/outer-grip-b45.md). Khôi phục nền B43; Base55/Max85, PID12/0/0,9; không Cruise. Mắt ngoài được cấp reserve ở TRACK, nhả khi error về tâm; carry/rejoin55, reacquire6ms. Owner báo B43 đạt15,5s, B44 mất16,3s; chưa đo B45. Các mục current cũ bên dưới là lịch sử khi mâu thuẫn.
 
 > **B44 hiện tại (30/10/2026)**: [Chicane và Straight Cruise](docs/chicane-cruise-b44.md). Base50 / Straight62 / Max85, PID14 / 0 / 0,9; trợ lực trong ALIGN, quay64/−22 rồi58/−40 sau20ms trắng. B43 owner đo15,5s; B44 đã test/build, chưa đo lap. Các mục current cũ bên dưới là lịch sử khi mâu thuẫn.

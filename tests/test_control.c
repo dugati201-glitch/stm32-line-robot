@@ -97,7 +97,7 @@ void test_entry(void)
     p.base_percent=20; p.straight_percent=20; p.max_percent=30;
     Control_Start(&state);
     Control_Step(&state, &p, 0, 1, 0x18, 2);
-    CHECK(state.left == state.right && state.left <= 3);
+    CHECK(state.left == state.right && state.left <= 4);
     for (i = 0; i < 1500; ++i) Control_Step(&state, &p, 0, 1, 0x18, 2);
     CHECK(state.left == 200 && state.right == 200); /* Base reached; Max is a ceiling only. */
     Control_Step(&state, &p, 1000, 1, 0x10, 2);
@@ -111,7 +111,7 @@ void test_entry(void)
     Control_Start(&state);
     for (i = 0; i < 200; ++i) Control_Step(&state, &p, 2000, 1, 0x40, 2);
     Control_Step(&state, &p, 2000, 0, 0, 2);
-    CHECK(state.mode == CONTROL_PROBE);
+    CHECK(state.mode == CONTROL_TURN); /* B46 outer cue bypasses loss confirmation. */
     for (i = 0; i < 50; ++i) Control_Step(&state, &p, 2000, 0, 0, 2);
     CHECK(state.mode == CONTROL_TURN && state.left > 0 && state.right < 0);
     for (i = 0; i < 700; ++i) Control_Step(&state, &p, 2000, 0, 0, 2);

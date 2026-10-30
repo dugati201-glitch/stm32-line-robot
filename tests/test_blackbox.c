@@ -108,7 +108,7 @@ void RunBlackboxTests(void)
     CHECK(status.saved && status.ram_saved && status.sequence==1);
     before=erase_count; CHECK(Blackbox_Save() && erase_count==before);
     output_bytes=0; CHECK(Blackbox_Export());
-    CHECK(Contains("# linefollower_blackbox_v1,firmware,B45,sequence,1,count,160\r\n"));
+    CHECK(Contains("# linefollower_blackbox_v1,firmware,B46,sequence,1,count,160\r\n"));
     CHECK(Contains("# values,55,55,85,12000,0,900,-1,255,6\r\n"));
     CHECK(Contains("# END,count,160,crc32,"));
     for(i=0,lines=0;i<output_bytes;++i) if(SERIAL_TEXT[i]=='\n') ++lines;

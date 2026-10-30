@@ -88,11 +88,11 @@ void RunScheduledTests(void)
         Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,2);
         for(i=0;i<20;++i) Control_Step(&s,&p,0,0,0,2);
         CHECK(s.mode==CONTROL_TURN && !s.recovery_arc && !s.corner_gain);
-        CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0) && s.target==68);
+        CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0) && s.target==70);
         {
             unsigned before=s.recovery_ms;
             Control_Step(&s,&p,0,0,0xFF,2);
-            CHECK(s.left==SWING_LEFT(sign,p.max_percent,1) && s.right==SWING_RIGHT(sign,p.max_percent,1) && s.target==64);
+            CHECK(s.left==SWING_LEFT(sign,p.max_percent,1) && s.right==SWING_RIGHT(sign,p.max_percent,1) && s.target==66);
             CHECK(s.recovery_ms==before+2);
         }
         Control_Step(&s,&p,sign*500,1,sign>0?0x10:0x08,2);

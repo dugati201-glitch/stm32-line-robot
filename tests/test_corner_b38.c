@@ -29,7 +29,7 @@ void test_entry(void) {
         Seed(&s,&p,sign);
         for(i=0;i<1400/dt;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0x20:0x04,dt);
         CHECK(s.mode==CONTROL_TRACK && s.fault==FAULT_NONE && s.left>0 && s.right>0);
-        CHECK(s.target==55 && !s.recovery_ms);
+        CHECK(s.target>50.724f && s.target<50.726f && !s.recovery_ms);
     }
     /* Many separate corners, with visible travel, exceed one old budget. */
     Control_Defaults(&p); Control_Start(&s); s.speed=55;
@@ -59,7 +59,7 @@ void test_entry(void) {
         Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
         CHECK(sign*s.last_correction>28.355f && sign*s.last_correction<28.357f);
         CHECK(s.mode==CONTROL_TRACK && !s.corner_pending_ms && s.left>0 && s.right>0);
-        CHECK(!s.brake_count && s.target==55);
+        CHECK(!s.brake_count && Abs(s.target-50.725f)<0.001f);
         Control_Step(&s,&p,-sign*1500,1,sign>0?0x1F:0xF8,2);
         CHECK(Abs(s.corner_gain-0.08f)<0.0001f); /* No carry across sides. */
         Control_Step(&s,&p,500,1,0x10,2);
@@ -75,7 +75,7 @@ void test_entry(void) {
             CHECK(s.mode!=CONTROL_FAULT && s.left>0 && s.right>0);
             if(elapsed<CONTROL_RECOVERY_VISIBLE_MS) CHECK(s.recovery_ms==1200 && s.target==55);
         } while(elapsed<CONTROL_RECOVERY_VISIBLE_MS);
-        CHECK(s.mode==CONTROL_TRACK && s.target==55 && !s.recovery_ms);
+        CHECK(s.mode==CONTROL_TRACK && s.target==55 && !s.recovery_ms); /* Final ALIGN output. */
         Control_Step(&s,&p,0,0,0,dt);
         CHECK(s.mode!=CONTROL_FAULT && s.recovery_ms==dt);
         /* Evidence at 39ms or less followed by invalid cannot release budget. */

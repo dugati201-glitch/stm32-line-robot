@@ -189,7 +189,7 @@ void RunRobotTests(void)
     for(i=0;i<100;++i) { Robot_UIAlive(now_ms); TestRobot_LoseMask(0); }
     Robot_GetStatus(&status);
     CHECK(status.mode==CONTROL_TURN && motor_left<0 && motor_right>0);
-    CHECK(motor_left==-300 && motor_right==680);
+    CHECK(motor_left==-330 && motor_right==700);
     Robot_Stop(FAULT_NONE);
     /* A direct high-duty turn is active RUN: preserve trace and allow explicit Stop. */
     {
@@ -203,7 +203,7 @@ void RunRobotTests(void)
         CHECK(status.mode==CONTROL_TURN && !status.brake_count && motor_left>motor_right);
         Robot_Stop(FAULT_NONE); Robot_GetLastRun(&trace);
         CHECK(trace.valid && trace.mode==CONTROL_TURN && !trace.brake_count);
-        CHECK(trace.speed_reason==SPEED_RECOVERY && trace.target_percent==68);
+        CHECK(trace.speed_reason==SPEED_RECOVERY && trace.target_percent==70);
         TestRobot_EmitMask(0x18); Robot_GetStatus(&status);
         CHECK(status.mode==CONTROL_STOPPED && !motor_left && !motor_right);
     }

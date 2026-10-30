@@ -80,7 +80,7 @@ void test_entry(void) {
         Control_Step(&s,&p,0,0,0,dt);
         CHECK(s.mode==CONTROL_TURN && s.turn_dir==sign && !s.recovery_arc);
         Control_Step(&s,&p,0,1,0x18,dt);
-        CHECK(s.mode==CONTROL_ALIGN && s.target==55 && s.speed==55);
+        CHECK(s.mode==CONTROL_ALIGN && s.target==55 && s.speed>=49 && s.speed<=55);
         Control_Stop(&s,FAULT_UI); Control_Step(&s,&p,0,1,0x18,dt);
         CHECK(s.mode==CONTROL_FAULT && !s.left && !s.right);
     }

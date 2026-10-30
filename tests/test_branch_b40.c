@@ -37,7 +37,7 @@ void test_entry(void) {
         CHECK(sign*s.last_correction>29.999f && sign*s.last_correction<30.001f);
         Warm(&s,&p,55); p.kp=p.ki=p.kd=0;
         for(i=0;i<20;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,dt);
-        CHECK(s.left==s.right && s.left>400 && s.left<550);
+        CHECK(s.left==s.right && s.left>380 && s.left<385);
         Warm(&s,&p,55); p.kd=0;
         for(i=0;i<20;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0x30:0x0C,dt);
         CHECK(sign*s.last_correction>20.699f && sign*s.last_correction<20.701f);

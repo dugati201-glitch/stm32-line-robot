@@ -25,7 +25,7 @@ void test_entry(void) {
         for(i=0;i<20;++i) {
             Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
             B43_Control_Step(&old,&p,sign*2500,1,sign>0?0x40:0x02,dt);
-            CHECK(s.mode==CONTROL_TRACK && !s.corner_pending_ms && !s.drive_corner_dir);
+            CHECK(s.mode==CONTROL_TRACK && s.corner_pending_ms && !s.drive_corner_dir);
             CHECK(s.left>=-240 && s.right>=-240 && s.left<=850 && s.right<=850);
             CHECK(old.left>=0 && old.right>=0 && !old.corner_gain);
         }
@@ -53,7 +53,7 @@ void test_entry(void) {
         /* Observed single-eye authority is present after TTL expiry as well. */
         Seed(&s,&p,CONTROL_TRACK,sign,55); p.kd=0; s.corner_pending_ms=dt; s.drive_corner_dir=(int8_t)sign;
         for(i=0;i<20;++i) Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
-        CHECK(!s.corner_pending_ms && (sign>0?s.right<0:s.left<0));
+        CHECK(s.corner_pending_ms && (sign>0?s.right<0:s.left<0));
         /* Wrong-side masks, central-only data, low duty and tiny Max grant no reverse. */
         for(j=0;j<4;++j) {
             Seed(&s,&p,CONTROL_TRACK,sign,j==2?30:55); p.kd=0;
@@ -72,7 +72,7 @@ void test_entry(void) {
         for(j=0;j<2;++j) {
             Seed(&s,&p,CONTROL_TURN,sign,j?5:80);
             Control_Step(&s,&p,0,0,0,dt);
-            CHECK(s.left==(sign>0?680:-300) && s.right==(sign>0?-300:680));
+            CHECK(s.left==(sign>0?700:-330) && s.right==(sign>0?-330:700));
             CHECK(s.speed==(j?5:55));
             Control_Step(&s,&p,0,1,0x18,dt);
             CHECK(s.target==55 && (j?s.speed<6:s.speed==55));
@@ -87,12 +87,12 @@ void test_entry(void) {
     /* Low P avoids actuator clipping, exposing20% vs35% common reduction directly. */
     Seed(&s,&p,CONTROL_TRACK,1,55); p.kp=5; p.kd=0;
     Control_Step(&s,&p,2500,1,0x40,2);
-    CHECK(Abs((s.left+s.right)/20.0f-44)<0.11f);
+    CHECK(Abs((s.left+s.right)/20.0f-43.04f)<0.11f);
     grip_trace[2][0]=2; grip_trace[2][3]=s.left; grip_trace[2][4]=s.right;
     Seed(&s,&p,CONTROL_TRACK,1,55); p.kp=5; p.kd=0;
     s.shape_ms=4; s.shape_dir=1; s.corner_pending_dir=s.drive_corner_dir=1; s.corner_pending_ms=100;
     Control_Step(&s,&p,2500,1,0xF8,2);
-    CHECK(Abs((s.left+s.right)/20.0f-35.75f)<0.11f);
+    CHECK(Abs((s.left+s.right)/20.0f-34.97f)<0.11f);
     grip_trace[3][0]=3; grip_trace[3][3]=s.left; grip_trace[3][4]=s.right;
     for(maximum=10;maximum<=100;maximum+=5) for(sign=-1;sign<=1;sign+=2) {
         Seed(&s,&p,CONTROL_TRACK,sign,55); p.max_percent=maximum; p.kp=100; p.ki=2;

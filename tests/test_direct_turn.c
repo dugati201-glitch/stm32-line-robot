@@ -72,7 +72,7 @@ void RunDirectTurnTests(void)
         Profile55(&p); Control_Start(&s);
         s.history=1; s.speed=55; s.left=s.right=550; s.last_error=sign*1.5f;
         for(i=0;i<3;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
-        CHECK(s.mode==CONTROL_TRACK && s.target==55 && !s.brake_count);
+        CHECK(s.mode==CONTROL_TRACK && s.target>50.724f && s.target<50.726f && !s.brake_count);
         /* B40: three ramp steps plus confirmed broad proportional bias of 12. */
         CHECK(sign*(s.left-s.right)>752 && sign*(s.left-s.right)<755 && s.left>0 && s.right>0);
         CHECK(s.left<=850 && s.right<=850);

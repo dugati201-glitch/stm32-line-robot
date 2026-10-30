@@ -1,3 +1,6 @@
+> **B46 hiện tại (30/10/2026)**: [Curve slowing](curve-slow-b46.md). Owner xác nhận B45 đạt **15,2s, ổn định 5/5 lượt**, Base 50 vào cua gọn hơn 55. B46 giữ nền B45, defaults 55/85, PID 12/0/0,90; giảm target theo độ lệch, chốt hướng từ mắt ngoài và giữ D qua centered ALIGN. B46 chưa đo thời gian trên xe. Các mục current cũ dưới đây là lịch sử khi có mâu thuẫn.
+
+
 > **B45 hiện tại (30/10/2026)**: [Outer-eye grip](outer-grip-b45.md). Nền B43, defaults55/85, PID12/0/0,9; chưa đo B45 trên xe. Owner báo B43 15,5s, B44 16,3s.
 
 ## Kết quả B45

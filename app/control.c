@@ -193,10 +193,19 @@ static void Follow(ControlState *s, const ControlParameters *p, float e, float t
     int8_t reserve_dir=0;
     uint8_t outer_grip;
     float accel=CONTROL_ACCEL_PERCENT_PER_SECOND;
-    /* Startup/rejoin ramp only; ordinary tracking has one fixed Base target.
-     * The mixer can lower common duty to preserve steering within Max. */
-    float decel=smooth && target>=p->base_percent?
+    float decel;
+    /* B46: reduce the current target immediately with offset, without a timer.
+     * Keep low Base settings below the floor; ALIGN retains its B45 handoff. */
+    if(s->mode==CONTROL_TRACK && Abs(e)>CONTROL_CURVE_SLOW_START_PITCH &&
+       target>CONTROL_CURVE_FLOOR_PERCENT) {
+        float curve_floor=Limit(CONTROL_CURVE_FLOOR_PERCENT,0,target);
+        target=Limit(target-(Abs(e)-CONTROL_CURVE_SLOW_START_PITCH)*
+                     CONTROL_CURVE_SLOW_PER_PITCH,curve_floor,target);
+    }
+    decel=smooth && target>=p->base_percent?
         CONTROL_SOFT_DECEL_PERCENT_PER_SECOND:CONTROL_DECEL_PERCENT_PER_SECOND;
+    if(s->mode==CONTROL_TRACK && Abs(e)>CONTROL_CURVE_SLOW_START_PITCH && target<s->speed)
+        decel=CONTROL_DECEL_PERCENT_PER_SECOND;
     if(s->post_turn_ms && !s->corner_pending_ms && Abs(e)<=1.0f &&
        s->speed<CONTROL_EXIT_ACCEL_CEILING_PERCENT) accel=CONTROL_EXIT_ACCEL_PERCENT_PER_SECOND;
     /* Only calm narrow-line data after an earned fast handoff can use the
@@ -224,6 +233,12 @@ static void Follow(ControlState *s, const ControlParameters *p, float e, float t
                     (CONTROL_TIGHT_FULL_PITCH-CONTROL_TIGHT_START_PITCH),0,1);
         reverse_limit=Limit(CONTROL_TIGHT_REVERSE_PERCENT,0,maximum*0.5f)*tight;
         reserve_dir=e>0?1:-1;
+        if(outer_grip) {
+            /* A visible outer cue commits the next loss to this side now. */
+            s->corner_pending_dir=reserve_dir;
+            s->corner_pending_ms=CONTROL_CORNER_PENDING_MS;
+            RememberSide(s,reserve_dir);
+        }
         if(outer_grip && !s->shape_ms) common_reduction=CONTROL_OUTER_COMMON_REDUCTION;
     }
     /* B41: ramp branch bias from 2ms of visible directional shape, reaching
@@ -444,9 +459,7 @@ void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, ui
              * A glimpse/broad patch cannot. Keep memory and episode budget. */
             centered=s->reacquire_ms>=(uint32_t)Limit(p->align_ms,CONTROL_REACQUIRE_MIN_MS,CONTROL_REACQUIRE_MAX_MS);
             settled=centered || s->fast_exit || visible_settled;
-            if(centered && !s->fast_exit && !visible_settled) {
-                s->last_error=e; s->derivative=s->integral=s->planner_rate=0;
-            }
+            /* B46: preserve damping through centered ALIGN completion. */
             UpdateDerivative(s,e,dt);
             s->speed_reason=SPEED_RECOVERY;
             Follow(s,p,e,rejoin,maximum,dt,0,mask,outward);
@@ -480,7 +493,7 @@ void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, ui
             float target=base;
             s->speed_reason=SPEED_BASE;
             if(s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS) {
-                /* Visible corners keep the same Base target and ordinary PD. */
+                /* Follow applies B46 offset slowing to the current Base target. */
                 s->speed_reason=SPEED_CORNER;
             }
             if(s->post_turn_ms && !s->fast_exit && s->recovery_visible_ms<CONTROL_RECOVERY_VISIBLE_MS &&

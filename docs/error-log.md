@@ -1,3 +1,12 @@
+## ERR-076 — B45 chờ mất line sau mắt ngoài và reset D ở centered ALIGN
+
+- Owner xác nhận B45 đạt 15,2s ổn định 5/5 lượt; Base 50 vào cua gọn hơn 55. Base cao giữ target phẳng tới khi cue mạnh xuất hiện là một cơ chế có thể góp phần gây rộng cua, chưa có log mới để quy một nguyên nhân động lực học duy nhất.
+- B46 giữ nền B45 `bec27a6`, backup trước sửa. TRACK hạ target tuyến tính từ lệch 0,55 pitch, 4,5 điểm %/pitch, sàn 49%; không nâng Base thấp hơn sàn. Giảm PWM dùng 600 điểm %/giây; target về Base ngay khi về tâm, ramp 220/260 theo điều kiện thoát cua.
+- Outer grip chốt pending side 200ms để frame mất vạch kế tiếp đi thẳng vào TURN; giữ giới hạn D, antiwindup và motor reversal guard. Bỏ reset D/integral/planner lần thứ hai ở centered ALIGN; giữ reset đầu lần bắt lại line.
+- Swing mới: nonwhite 66/−24, trắng 70/−33; carry giữ min(previous,55,Max). Mean PWM trắng đổi 19% → 18,5%; không suy thành mô-men hay tốc độ thực đo.
+- Full suite pass: 106222 integration + 12857 standalone assertions, 26 Python tests; Keil 0 Error / 0 Warning. B46 chưa chạy đo lap trên xe. Xem `curve-slow-b46.md`.
+
+
 ## ERR-075 — B44 giảm thời gian tiến trong cua, owner đo chậm hơn B43
 
 - Owner báo B44 16,3s so với B43 15,5s, cua chậm hơn. Source B44 cho phép tight trong ALIGN và search58/−40 có mean9%, trong khi B43 white68/−30 có mean19% tại Max85. Đây là cơ chế command có thể góp phần; chưa có telemetry tách riêng nguyên nhân cơ học.

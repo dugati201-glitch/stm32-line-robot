@@ -53,7 +53,7 @@ static void CheckEntryAndSteering(void)
                 CHECK(s.left>=-280 && s.right>=-280 && s.left+s.right>0 && sign*(s.left-s.right)>0);
                 CHECK(s.left<=850 && s.right<=850);
             }
-            CHECK(s.target==p.base_percent && s.corner_pending_dir==sign);
+            CHECK(Abs(s.target-50.725f)<0.001f && s.corner_pending_dir==sign);
             /* Immediate opposite square corner changes steering, not old heading. */
             for(i=0;i<3;++i) Control_Step(&s,&p,-sign*1500,1,sign>0?0x1F:0xF8,2);
             CHECK(s.corner_pending_dir==-sign && sign*(s.left-s.right)<0);
@@ -78,9 +78,9 @@ static void CheckEntryAndSteering(void)
     s.last_error=1.0f; s.derivative=s.planner_rate=0;
     s.speed_bonus=0;
     Control_Step(&s,&p,1000,1,0x30,2);
-    CHECK(s.speed==55 && s.target==55 && s.speed_bonus==0 && s.left>0 && s.right>0);
+    CHECK(Abs(s.speed-53.8f)<0.001f && Abs(s.target-52.975f)<0.001f && s.speed_bonus==0 && s.left>0 && s.right>0);
     Control_Step(&s,&p,3500,1,0x80,2);
-    CHECK(s.speed==55 && s.target==55 && s.mode==CONTROL_TRACK); /* Steering, not a planner cap. */
+    CHECK(Abs(s.speed-52.6f)<0.001f && s.target==49 && s.mode==CONTROL_TRACK); /* B46 prompt offset slowing. */
     /* Direct high-duty recovery still yields immediately to valid line. */
     FastLoss(&s,&p,1);
     Control_Step(&s,&p,0,1,0x18,2);
@@ -120,11 +120,11 @@ void RunSpeedTests(void)
     CHECK(s.target==55 && s.speed_bonus==0); /* Legacy Straight is ignored even below Base. */
     p.straight_percent=60;
     Control_Step(&s,&p,1900,1,0x60,2);
-    CHECK(s.target==55 && s.speed_reason==SPEED_BASE);
+    CHECK(s.target==49 && s.speed_reason==SPEED_BASE);
     CHECK(s.mode==CONTROL_TRACK && s.left>=-240 && s.right>=-240 && s.left+s.right>0 && !s.brake_count);
     CHECK(!s.curve_valid); /* Outward drift must not earn the curve bridge. */
     for(i=0;i<300;++i) Control_Step(&s,&p,1200,1,0x30,2);
-    CHECK(s.target==55 && s.speed==55 && s.mode==CONTROL_TRACK && !s.brake_count);
+    CHECK(Abs(s.target-52.075f)<0.001f && Abs(s.speed-52.075f)<0.001f && s.mode==CONTROL_TRACK && !s.brake_count);
     /* Moderate stable curve -> fragmented center: retain exact steering briefly,
      * but never turn an 8 ms bridge into an unbounded straight-gap allowance. */
     {
@@ -150,14 +150,14 @@ void RunSpeedTests(void)
         for(i=0;i<500;++i) Control_Step(&s,&p,0,1,0x18,2);
     }
     for(i=0;i<300;++i) Control_Step(&s,&p,1200,1,0x30,2);
-    CHECK(s.target==55 && !s.brake_count);
+    CHECK(Abs(s.target-52.075f)<0.001f && !s.brake_count);
     for(i=0;i<500;++i) Control_Step(&s,&p,0,1,0x18,2);
     for(i=0;i<120;++i) Control_Step(&s,&p,0,0,0,2);
     CHECK(s.mode==CONTROL_GAP && s.left==550 && s.right==550);
     Control_Step(&s,&p,0,1,0x18,2);
     CHECK(s.mode==CONTROL_TRACK && s.target==55);
     for(i=0;i<4;++i) Control_Step(&s,&p,1500,1,0xF8,2);
-    CHECK(s.mode==CONTROL_TRACK && s.target==p.base_percent && s.left>=-280 && s.right>=-280 && s.left+s.right>0);
+    CHECK(s.mode==CONTROL_TRACK && Abs(s.target-50.725f)<0.001f && s.left>=-280 && s.right>=-280 && s.left+s.right>0);
     /* Both directions of a repeated square pattern retain bounded recovery
      * despite the faster pivot/recenter profile and brief central handoffs. */
     for(j=0;j<4;++j) {
@@ -174,13 +174,13 @@ void RunSpeedTests(void)
         for(i=0;i<85;++i) Control_Step(&s,&p,0,0,0,2);
         CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0));
         Control_Step(&s,&p,0,1,0x18,2);
-        CHECK(s.mode==CONTROL_ALIGN && s.left==550 && s.right==550 && !s.brake_ms);
+        CHECK(s.mode==CONTROL_ALIGN && s.left==s.right && s.left>=490 && s.left<=550 && !s.brake_ms);
         for(i=0;i<5;++i) Control_Step(&s,&p,0,1,0x18,2);
         CHECK(s.mode==CONTROL_TRACK && s.post_turn_ms && s.speed_guard_ms && s.recovery_ms<1200);
         {
             float before=s.speed;
             Control_Step(&s,&p,0,1,0x18,2);
-            CHECK(s.speed==before && s.speed==p.base_percent && !s.curve_valid);
+            CHECK(s.speed>=before && s.speed<=p.base_percent && !s.curve_valid);
         }
     }
     Profile55(&p); p.base_percent=45; p.straight_percent=55; p.max_percent=75; Control_Start(&s);
@@ -188,7 +188,7 @@ void RunSpeedTests(void)
     for(i=0;i<1500;++i) {
         float before=s.speed;
         Control_Step(&s,&p,0,1,0x18,2);
-        CHECK(s.speed<=before+0.301f && s.target==45 && s.speed_bonus==0);
+        CHECK(s.speed<=before+0.441f && s.target==45 && s.speed_bonus==0);
         CHECK(s.left<=450 && s.right<=450 && !s.brake_count);
     }
     CHECK(s.left==450 && s.right==450 && p.max_percent==75);
@@ -277,7 +277,7 @@ void RunSpeedTests(void)
     for(dt=1;dt<=4;++dt) {
         CruiseAt(&s,&p,90);
         for(i=0;i<120/dt;++i) Control_Step(&s,&p,3500,1,0x80,dt);
-        CHECK(s.speed==90 && s.target==90 && s.mode==CONTROL_TRACK);
+        CHECK(Abs(s.speed-76.725f)<0.001f && Abs(s.target-76.725f)<0.001f && s.mode==CONTROL_TRACK);
     }
     Profile55(&p); p.base_percent=45; p.straight_percent=55; p.max_percent=75; Control_Start(&s); Control_Start(&mirror);
     for(i=0;i<300;++i) {
