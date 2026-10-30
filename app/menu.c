@@ -33,7 +33,7 @@ static void ResetParameters(void)
 {
     Control_Defaults(&menu_parameters);
     Robot_SetParameters(&menu_parameters);
-}
+}		
 void Menu_Init(void)
 {
     currentMenu = MENU_MAIN;

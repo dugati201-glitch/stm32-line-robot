@@ -1,3 +1,5 @@
+/* Historical B28 forward-arc tests; superseded in B35 default suite by
+ * test_immediate_corner.c and test_gap_memory.c. */
 #include "control.h"
 #include "control_tuning.h"
 extern volatile unsigned test_count, failure_line;

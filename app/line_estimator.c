@@ -100,13 +100,21 @@ void Line_Update(LineEstimator *line, const uint16_t raw[LINE_COUNT])
         if (active) line->mask |= (uint8_t)(1U << i);
         if (active && !previous) ++groups;
         previous = active;
-        /* Suppress weak background before computing a centroid. */
-        if (strength < 150U) strength = 0;
-        sum += strength;
-        weighted += (uint32_t)strength * i * 1000U;
     }
-    /* Multiple separated groups or full-width line need supervisor handling. */
-    if (line->white_reference_valid && sum && line->mask && line->mask != 0xFFU && groups == 1U) {
+    /* B34: keep the original mask/validity policy. For one strong group,
+     * compute position only from signal connected to that group, including
+     * weak shoulders. A disconnected sub-threshold island is not its center.
+     * Never select one of multiple strong branches or invent position on white. */
+    if (line->white_reference_valid && line->mask && line->mask != 0xFFU && groups == 1U) {
+        uint8_t first=0,last=LINE_COUNT-1U;
+        while(!(line->mask & (1U<<first))) ++first;
+        while(!(line->mask & (1U<<last))) --last;
+        while(first>0 && line->strength[first-1U]) --first;
+        while(last<LINE_COUNT-1U && line->strength[last+1U]) ++last;
+        for(i=first;i<=last;++i) {
+            sum+=line->strength[i];
+            weighted+=(uint32_t)line->strength[i]*i*1000U;
+        }
         line->error = (int16_t)((int32_t)(weighted / sum) - 3500);
         line->valid = 1;
     }

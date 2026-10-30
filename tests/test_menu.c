@@ -133,7 +133,7 @@ void RunMenuTests(void)
     CHECK(currentMenu == MENU_PID);
     Send(1,0,0); Send(1,0,0); Send(1,0,0); /* Base row. */
     Send(2,0,0); Send(1,0,0); Send(2,0,0);
-    CHECK(menu_parameters.base_percent == 50 && menu_parameters.straight_percent == 50);
+    CHECK(menu_parameters.base_percent == 60 && menu_parameters.straight_percent == 60);
     Send(1,0,0); Send(2,0,0); Send(4,0,0); Send(2,0,0); /* Next row is Max. */
     CHECK(menu_parameters.max_percent == 80);
     /* Lower Max beneath Base: UI must lower Base too, preserving the invariant. */

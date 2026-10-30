@@ -2,6 +2,16 @@
 
 # Đặc tả giao tiếp phần cứng
 
+## Cập nhật owner ngày30/10/2026
+
+Owner xác nhận bánh gần68mm như package map, sensor boom khoảng165mm và
+khoảng cách hai bánh nhỏ hơn153mm nhưng chưa có số đo chính xác. **Xe vẫn
+không có encoder**; số275ticks/rev trong JSON chỉ là giả định của tài liệu
+tham chiếu. Không dùng nó làm input odometry/speed hoặc đặt timer tiến vào góc.
+Bar width83mm/pitch11,86mm trong package chưa được đo xác nhận trên chính xe.
+Map và audit: [reference](reference/robotrace-map-20261030/README.md).
+Firmware B39 giữ wiring/ADC/driver, xem [B39](yaw-reserve-b39.md).
+
 Trạng thái: chủ dự án xác nhận linh kiện và wiring dưới đây vào ngày 24/10/2026.
 Owner đã xác nhận Motor Test và manual calibration hoạt động. Hướng đặt hàng cảm biến và dấu sửa lái của RUN mới cần kiểm tra; mặc định polarity đã đảo theo phản hồi đen yếu/trắng mạnh.
 

@@ -1,3 +1,5 @@
+#include "swing_expected.h"
+#include "legacy_profile.h"
 #include "control.h"
 #include "control_tuning.h"
 extern volatile unsigned test_count, failure_line;
@@ -11,7 +13,7 @@ static void Check(int ok,unsigned line)
 /* Keep the released 55/85 profile covered independently of new defaults. */
 static void Profile55(ControlParameters *p)
 {
-    Control_Defaults(p); p->base_percent=p->straight_percent=55;
+    TestLegacyDefaults(p); p->base_percent=p->straight_percent=55;
 }
 
 static float Abs(float x) { return x<0?-x:x; }
@@ -120,8 +122,8 @@ void RunFixedBaseTests(void)
         Control_Step(&s,&p,0,0,sign>0?0x17:0xE8,2);
         CHECK(s.mode==CONTROL_TURN && s.turn_dir==-sign);
         CHECK(-sign*(s.left-s.right)>0);
-        if(s.recovery_arc) CHECK(s.left>0 && s.right>0);
-        else CHECK(s.left==-sign*500 && s.right==sign*500);
+        CHECK(!s.recovery_arc);
+        CHECK(s.left==SWING_LEFT(-sign,p.max_percent,1) && s.right==SWING_RIGHT(-sign,p.max_percent,1));
         /* One conflicting sample followed by white is not a new direction. */
         Warm(&s,&p); Corner(&s,&p,sign);
         Control_Step(&s,&p,0,0,sign>0?0x17:0xE8,2);
@@ -137,7 +139,7 @@ void RunFixedBaseTests(void)
         p.straight_percent=j==0?0:j==1?55:100;
         Control_Start(&s);
         Control_Step(&s,&p,0,1,0x18,2);
-        CHECK(s.speed>0 && s.speed<=0.161f && s.target==55);
+        CHECK(s.speed>0 && s.speed<=0.301f && s.target==55);
         for(i=0;i<800;++i) {
             Control_Step(&s,&p,0,1,0x18,2);
             CHECK(s.target==55 && s.speed<=55 && s.mode==CONTROL_TRACK);
@@ -155,8 +157,8 @@ void RunFixedBaseTests(void)
         }
     }
 
-    /* A steady confirmed broad shape must not insert B24's 0.8-limit kick at
-     * 6 ms. Its ordinary PID correction is 12 * 1.5 = 18 in either direction. */
+    /* B40 adds a bounded proportional branch bias at confirmation (12 here),
+     * while the existing scheduled gain keeps its ramp. No fixed PWM floor. */
     Profile55(&p);
     for(sign=-1;sign<=1;sign+=2) {
         Warm(&s,&p);
@@ -166,8 +168,8 @@ void RunFixedBaseTests(void)
             float before=Abs(s.last_correction);
             Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
             CHECK(s.mode==CONTROL_TRACK && s.target==55);
-            CHECK(sign*s.last_correction>=18.0f && sign*s.last_correction<=23.401f);
-            CHECK(Abs(s.last_correction)<=before+1.801f && s.left>0 && s.right>0);
+            CHECK(sign*s.last_correction>=18.0f && sign*s.last_correction<=42.601f);
+            CHECK(Abs(s.last_correction)<=before+(i<2?7.441f:1.441f) && s.left>=-280 && s.right>=-280 && s.left+s.right>0);
         }
         CHECK(s.corner_pending_ms && s.corner_pending_dir==sign);
     }
@@ -177,7 +179,6 @@ void RunFixedBaseTests(void)
      * These are controller requests, not measured motor velocity or yaw. */
     for(dt=1;dt<=4;++dt) for(j=0;j<3;++j) for(sign=-1;sign<=1;sign+=2) {
         unsigned elapsed=0;
-        int duty;
         Profile55(&p);
         p.max_percent=j==0?20:j==1?55:85;
         p.base_percent=p.max_percent;
@@ -188,10 +189,9 @@ void RunFixedBaseTests(void)
         } while(elapsed<6U);
         CHECK(s.corner_pending_ms);
         Control_Step(&s,&p,0,0,0,dt);
-        duty=p.max_percent<50?p.max_percent:50;
         CHECK(s.mode==CONTROL_TURN && s.turn_dir==sign && !s.brake_ms && !s.brake_count);
-        if(s.recovery_arc) CHECK(s.left>0 && s.right>0 && sign*(s.left-s.right)>0);
-        else CHECK(s.left==sign*duty*10 && s.right==-sign*duty*10);
+        CHECK(!s.recovery_arc);
+        CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0));
         CHECK(!s.may_cross_gap);
         p.max_percent=10;
         Control_Step(&s,&p,0,0,0,dt);
@@ -219,9 +219,9 @@ void RunFixedBaseTests(void)
      * explicit fault latching. A fresh start is still an operator action. */
     EnterTurn(&s,&p,1);
     for(i=0;i<6;++i) Control_Step(&s,&p,0,1,0x18,2);
-    CHECK(s.mode==CONTROL_TRACK && s.post_turn_ms && s.recovery_arc && s.speed>40 && s.speed<=55);
+    CHECK(s.mode==CONTROL_TRACK && s.post_turn_ms && !s.recovery_arc && s.speed>48 && s.speed<=51);
     Control_Step(&s,&p,0,1,0x18,2);
-    CHECK(s.target==55 && s.speed<=55);
+    CHECK(s.target==55 && s.speed>48 && s.speed<=51.5f);
     Control_Stop(&s,FAULT_ADC);
     for(i=0;i<10;++i) Control_Step(&s,&p,0,1,0x18,2);
     CHECK(s.mode==CONTROL_FAULT && !s.left && !s.right);

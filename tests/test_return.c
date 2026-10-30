@@ -2,6 +2,7 @@
 #include "control_tuning.h"
 extern volatile unsigned test_count,failure_line;
 void test_done(void);
+#if CONTROL_CORNER_RETURN_CONFIRM_MS > 0
 static void Check(int ok,unsigned line)
 {
     ++test_count;
@@ -82,3 +83,8 @@ void RunCornerReturnTests(void)
         CHECK(!s.corner_gain && !s.corner_releasing && !s.corner_inward_ms);
     }
 }
+
+#else
+/* Historical B29 candidate only; B30 disables this policy after owner regression. */
+void RunCornerReturnTests(void) {}
+#endif

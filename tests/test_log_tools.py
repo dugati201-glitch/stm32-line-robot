@@ -29,7 +29,9 @@ class LogToolsTests(unittest.TestCase):
 
     def test_c_output_with_hercules_surrounding_text(self):
         log = parser.parse_log('Serial port open\n' + self.text + '\nPort closed\n')
-        self.assertEqual(log['firmware'], 'B29')
+        self.assertEqual(log['firmware'], 'B43')
+        # The final Robot export uses the explicitly pinned historical profile;
+        # the current default 55/85,Kd0.9 header is checked in test_blackbox.c.
         self.assertEqual(log['profile']['kd_x1000'], 120)
         self.assertEqual(log['rows'][-1]['mode'], 0)
         self.assertTrue(log['rows'][-1]['flags'] & 4)

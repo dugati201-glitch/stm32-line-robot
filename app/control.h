@@ -36,8 +36,11 @@ typedef struct {
     uint8_t recovery_arc;
     float corner_gain;
     uint8_t search_near_line;
-    uint16_t corner_inward_ms, corner_outward_ms;
-    uint8_t corner_releasing;
+    uint16_t fast_center_ms;
+    uint8_t fast_exit;
+    float d_output; /* Applied D term; high-Kd corner shaping, not raw rate. */
+    uint16_t recovery_visible_ms, post_turn_visible_ms;
+    int8_t drive_corner_dir; /* Confirmed visible cue, separate from search retargets. */
 } ControlState;
 void Control_Defaults(ControlParameters *p);
 void Control_Stop(ControlState *s, ControlFault fault);

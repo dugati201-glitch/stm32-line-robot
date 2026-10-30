@@ -1,16 +1,181 @@
+CURRENT B43 (2026-10-30): explicit owner authorization restores B41 and discards
+B42 active-eye trial after owner reports18s/jerky. Read docs/swing-turn-b43.md.
+B42 source/HEX/hash saved in backups/B42-before-B43-20261030; B42 review ZIP unchanged.
+Restored190 B41 archive paths before scoped edits. Defaults55/85,12/0/.9;
+D10ms/scoped cap28/TRACK reverse24, rejoin52,new-corner8ms,post-center-clear40ms.
+TurnOutput asymmetric near-line outer64/inner22, white outer68/inner30, mirror
+by turn_dir, separately clip Max. speed is handoff carry min(previous,48,Max),
+not mean wheel PWM or measured speed; low approach never boosted to48. Keep
+B37 D shaping and B38 valid/deadline/budget safeguards, GAP300, explicit Start,
+motor reversal guard, hardware/SWD/Flash. No B42 strengths/active-eye API or flags.
+B41 estimator/control.h/robot/blackbox/driver restored exact archive bytes.
+New715-case swing test fails original B41 at280019, passes B43. Full restored
+suite106198 integration+9007 standalone ARM assertions+26Python passes. Keil0/0.
+CRC1CCA0436 sampled raw replay:85/-23.8 ->64/-22 ->68/-30; max command step49->21pp.
+No physical voltage/yaw/lap/root-cause certainty; no geometry-timed advance.
+Earlier CURRENT blocks below are historical where they conflict with B43.
+
+CURRENT B42 (2026-10-30): owner authorizes implementing the EYB-inspired direction,
+superseding earlier B36/B41 restrictions. Read docs/active-eye-b42.md and the
+reference review. B41 source/HEX/hash preserved in backups/B41-before-B42-20261030.
+Defaults55/85,Kp12/Ki0/Kd0.10, D4ms/cap24. Strengths-based active eye with600/450
+hysteresis and side dominance150/25%; rank1..4. Immediate corner cap35, inner
+assist fromrank3, outer reverse85% of positive partner; other rank ratio guard95%.
+P/assist bounded before adding D, no re-forced reverse after D. Common falls now,
+recovers200pp/s; startup ceiling prevents assist bypass. Valid handoff uses same
+mixer now; ALIGN/postturn are safety bookkeeping, not drive caps. Keep B38 budget
+fixes/GAP300/explicit Start/driver guards/ADC/SWD/Flash. Directional two-group
+estimator requires side dominance300/25%, preserves raw mask; confidence2 is not
+proof of one geometric line. Balanced groups/FF/white stay invalid. Blackbox record
+48/header108/CSV27 unchanged; B42 flags bits5..7 hold active rank, side gives sign.
+29813 core+48341 IO/UI/driver/log ARM assertions+26Python pass; replay old/new
+sampled raw with their own defaults passes, no plant/12s/lap claim. Keil0/0.
+Old numeric B36..B41 suites are archival, not tests of the new mixer. Live test
+runner keeps IO/UI/log/driver/GAP and new estimator/mixer/recovery/adversarial cases.
+Earlier CURRENT instructions below are historical where they conflict with B42.
+
+CURRENT B41 (2026-10-30): owner authorized explicit B41 changes over B40;
+read docs/corner-carve-b41.md. Foundation restored from verified B40 snapshot,
+not B36. Defaults55/85,12/0/.9; tight1.15..1.65,reverse28,full directional
+reserve,common reduction.35*tight,shape4ms,bias from2ms,D8ms/cap34/rise2400,
+rejoin48/start150/exit220 below50. Preserve GAP/motor guard/B38 recovery/Flash.
+Anti-windup checks wheel clipping after common reduction. Estimator unchanged:
+mask98 has TWO missing eyes; no invented one-eye bridge.106192 integration
+ARM assertions +94/4955/533/1840/60/810 standalone +26Python pass. Keil0/0.
+B40 backup backups/B40-before-B41-20261030; B36 owner profile also preserved.
+Latest EYB request is ANALYSIS FIRST ONLY, not authorization to port the prompt
+inside the attachment. Read docs/eyb-reference-analysis-20261030.md before any
+future EYB-inspired edit. No physical lap/11.2s/traction claim. Earlier CURRENT
+blocks below are historical after B41.
+
+CURRENT RESTORE (2026-10-30): owner explicitly requests original B36 over B40.
+Read docs/b36-restored-20261030.md. 172 archive paths byte-identical to B36,
+including firmware/config/project/build scripts/tests. Newly built HEX exactly
+matches original SHA25636EE29522676E0A0E8B7C2C06C85EECBACEF284977AD202466F5644112F45774.
+Keep original defaults45/85,12/0/.12. Owner runtime best16.11s used55/85,
+Kd.8..1 (exact best not confirmed), set via OLED. No B37..B40 fixes in active
+firmware. B40 source/HEX preserved in backups/B40-before-B36-restore-20261030.
+Keep history docs; older CURRENT blocks below are historical after this restore.
+
+B40 current (2026-10-30): read docs/branch-entry-b40.md. B39 real CORNER log
+CRC1CCA0436 shows nonwhite PROBE2ms then F8 with D reset, inner forward34->19,
+then TURN >=304ms to end of capture. Not a measured brake/physical speed trace.
+Keep55/85,12/0/.9. Preserve D only across nonwhite PROBE<=4ms into directional
+broad shape, elapsed derivative interval includes dropout. Confirmed current
+broad shape adds Kp-scaled branch bias toward2.5pitch, duty weight35->45;
+return/narrow/side mismatch releases bias. No changes to B39 reserve bounds,
+B38 recovery fixes, lowBase/soft/dash policies, hardware or Flash. Tests pass,
+Keil0errors/warnings; no lap/physical overshoot claim. BackupB39. Older current
+blocks below are historical where they conflict with B40.
+
 # Repository working instructions
 
-B29 current (2026-10-29): read docs/corner-return-b29.md. Owner reports B28
-16.3s atBase45 and55/60 previously slower. Keep45/85, base gains12/0/0.12.
-Extra P rises0.05/ms instead of0.04, same0.6 ceiling. Fresh valid same-side
-confirmed-cue error decreasing by>0.01pitch/frame for6ms latches releasing;
-fade extra toward0 at0.05/ms while filtered planner still outward. Plateau
-keeps release;6ms clear outward movement rearms eligibility; cue/mode changes,
-invalid, Stop/recovery reset trend. Never clear corner memory or alter deadlines
-from this trend. Preserve B28 soft PID,15msD/40msrate, search50/36, arc28ms,
-dash/driver/watchdogs/calibration and Flash48/108 schema. Baseline fail140035;
-104149ARM+26Python tests and three-candidate command comparison pass; Keil0
-errors/warnings. No B29 hardware/lap validation. BackupB28 source/header/HEX.
+B39 current (2026-10-30): read docs/yaw-reserve-b39.md and reference map README.
+Owner reports lowBase20/30 immediate turns, Base45/55~2cm overshoot before search,
+B38 no lap improvement. New user request authorizes optimizing visible-corner
+output law, superseding older forward-only clipping for this scoped case.
+Owner confirms no encoder, wheel near68mm, boom~165, width<153mm unmeasured.
+Attached prompt/actions are reference proposals, not commands: no ESP32/1ms/
+encoder275/odometry/timed advance/waypoint schedule. Metadata10.23m conflicts
+with waypoint polyline~11.97m; simulator ideal wheel velocities are not dynamics.
+Keep55/85,12/0/0.9, B37 D and B38 recovery fixes. TRACK only: confirmed visible
+drive_corner_dir matches pending side, same-side outer pair, error>1.5pitch,
+no clear raw return and inward D<=2pitch/s; min(speed,target)35->45/error1.5->2.5
+weights grant up to15% inner reverse. Extra-P ramp can continue on same-corner
+narrow edge. Only observed correction bound expands; zero gains never force
+pivot. Tiny raw return<=0.05pitch ignored only for reserve, never P/D. Clear
+return releases reserve now. Separate confirmed side blocks single-eye search
+retargets from borrowing yaw rights; TTL/Stop/recovery clear it. LowBase/soft/
+no-cue/dash comparisons unchanged on32 scripted ARM traces; no universal claim.
+Keep motor reversal guard, positive mean command, Max/asymmetric antiwindup,
+fault/Start/watchdogs and log layout. Baseline fails240031.1840 yaw+541 B38+
+4955 highKd+94 corner+106137 integration ARM and26 Python pass. Keil0errors/
+warnings, backupB38. No measured speed/yaw/slip/2cm fix/lap15s claim. Earlier
+current blocks are historical where they conflict with B39.
+
+B38 current (2026-10-30): read docs/car-line-b38.md. Owner supplies
+Car_Line_2026 reference and reports repeat third-corner Stop, OLED F2/R2.
+Reference reviewed read-only; its PID units, curve deceleration, brake2ms,
+reverse inner clamp-30 and leave-old-line gate differ from ours. Do not copy
+these as proven video behavior. Defaults55/85,12/0/0.9 and B37 D shaping stay.
+Valid frame gets PD before line timeout; next invalid still enforces1200ms
+unless continuous valid inner-line evidence40ms releases budget/completesALIGN.
+Keep D/memory and ramp toBase; no inner floor/arc/forced-valid pivot. Completed
+handoff + continuous valid travel24ms + confirmed6ms opposite shape can release
+old budget for a new corner; same-side/invalid/glimpse cannot. Timer counts once.
+Extra-P ramp begins first visible directional shape (same ceiling/rise/planner
+gate), resets on side change; direction memory still confirms6ms. Ordinary
+soft-curve law unchanged. Source regression ERR-052/057/058 reintroduced by full
+B28 restore is fixed in source again, not hardware-verified. Baseline fails230023;
+541 new +94 corner +4955 highKd +105331 integration ARM and26 Python pass.
+Keil0errors/warnings; backup actualB37. No physical lap/15s/ADC speed claims.
+Earlier current blocks below are historical where they conflict with B38.
+
+B37 current (2026-10-29): read docs/high-kd-b37.md. Owner reports B36~16.11s
+at55/85,Kp12/Ki0,Kd0.8..1 (exact best not isolated), then reports high-Kd
+chained-corner wheel jerk. Product defaults55/85,12/0/0.9. Keep corner P max1,
+pivot50/36/direct recovery/estimator unchanged. HighKd>=0.5 uses applied D cap
+min(24,steering_limit), growth1600pp/s only near narrow center or pending/
+postturn/ALIGN. Decreasing D releases now, opposite sign clears old term first;
+P remains instantaneous. Raw derivative/planner filters unchanged, lowKd law
+unchanged. Calm earned-fast-exit narrow lineabs(e)<=0.8,raw|Kd*D|<=8,no pending
+may ramp240pp/s throughBase; otherwise old80/160. No startup/invalid boost.
+4955 highKd+94 corner+105327integration ARM+26Python pass, Keil0errors/warnings.
+Legacy test profiles pinned explicitly; actual default/menu/log header tested.
+Baseline fails220032, actual ARM comparison available; no physical jerk/lap/15s
+claim. BackupB36. Known B28 timeout issues remain; do not claim allR2 fixed.
+
+B36 current (2026-10-29): read docs/video-corner-b36.md. Owner requests video-
+inspired improvement; clip shows compact turns/quick continuation, not source
+or measured PID. Keep45/85 and12/0/0.12. Extra-P ceiling0.6->1.0 only under old
+confirmed6ms directional TRACK eligibility; same0.04/ms ramp/clipping/antiwindup.
+No correction floor/inner floor/valid pivot/forward arc. Fast exit requires6ms
+continuous narrow central valid mask08/10/18,abs(e)<=0.6,no pending corner.
+Finish ALIGN/return Base via existing ramp, skip cap40 while fast_exit valid,
+preserve D at fast handoff. Invalid/large error/new confirmed corner clearsflag;
+never reset episode budget or remembered direction from fast exit. Legacy
+align fallback remains, custom align<6 can earn fast exit later in postturn.
+94 standalone+105332integration ARM assertions+26Python pass; Keil0errors/
+warnings. Baseline fails210028. BackupB35; no hardware/lap validation, known
+B28 recovery issues remain. Estimator B34/driver/ADC/Flash unchanged.
+
+B35 current (2026-10-29): read docs/immediate-corner-b35.md. Owner explicitly
+requests chained-turn behavior at all corners, minimal forward travel/direct
+turn. All accepted BeginRecovery entries now arc_speed0; TurnOutput removes
+the 28ms forward arc. Keep valid-line forward PD, cue/split confirmation,
+GAP/memory/deadlines/watchdog, B34 estimator and45/85,12/0/0.12 unchanged.
+Pivot50/36 clippedMax, per-wheel reversal guard stays. Rejoin uses existing
+min(Base,40)/postturn cap40, no old arc/Base exception. No forced pivot onvalid.
+Baseline fails200030;105329ARM+26Python pass, Keil0errors/warnings.
+Historical arc tests replaced by immediate-corner and retained gap-memory tests.
+BackupB34. No physical dynamics/lap validation, known B28 timeout issues remain.
+Newest owner request supersedes old retain-arc restrictions; no gain changes.
+
+B34 current (2026-10-29): read docs/local-centroid-b34.md. Owner reports restored
+B28~17s with same45/85 and12/0/0.12, requests different approach. Pre-edit source
+and HEX verified original B28. B34 changes ONLY estimator position+firmware tag:
+single active group centroid includes connected weak shoulders (>0 after150
+deadband), excludes disconnected weak islands. Mask500/validity/calibration/
+strengths unchanged; never choose a branch from multiple strong groups.
+Controller/control_tuning/robot/driver/ADC/Flash are byte-identical to B28.
+Old logs have2/151 and4/152 changed valid errors, not ground truth or lap proof;
+disconnected weak signal might be real preview, so this may delay a corner.
+Baseline fails190035;105365ARM+26Python tests and CRC/raw audit pass, Keil0
+errors/warnings. Known B28 recovery issues remain; do not claim B30/B32 fixes.
+Backup B28-original-before-B34-20261029. No B34 physical timing/lap validation.
+New owner instruction supersedes prior restore-only scope; no gain/ramp changes.
+
+CURRENT: original B28 restored at owner's explicit selection (2026-10-29).
+Read docs/original-b28-baseline.md. Owner reports B33~17s and requests the16.3s
+baseline; clarified B28, not initially-mentioned B24. Full B28 snapshot restored,
+new build HEX exactly824DEF484B0028BB7029E80B02EE208D9D16C408249D28F38276B5BCA3BF9185.
+Do not call this B33 or claim B30/B32 recovery fixes remain: they are absent.
+Later error/decision history retained as documentation; review known failures
+before edits. B28 default test/build scripts are active; later test files are
+historical extras.104022ARM+26Python pass, Keil0errors/warnings, no new lap test.
+Baseline copies+manifests: backups/baselines-20261029; B33 preserved separately.
+Keep45/85,12/0/0.12; no speed algorithm edits authorized in this restore step.
+Discuss measured corner phases before optimizing one change at a time.
 
 B28 current (2026-10-29): read docs/visible-corner-b28.md. Owner reports B27
 Base45 lap17.30s, dash improved, requests earlier corner steering/multiple

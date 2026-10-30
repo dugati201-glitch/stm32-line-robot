@@ -1,5 +1,9 @@
 # Nhật ký lỗi và bài học triển khai
 
+Hiện tại: **B43 — B41 với asymmetric recovery swing**, xem
+[swing-turn-b43.md](swing-turn-b43.md). Profile55/85,12/0/0,9; đã build/test,
+chưa có kết quả xe thật. Các mục current cũ bên dưới là lịch sử.
+
 Đọc file này trước khi sửa firmware. Chỉ ghi kết luận có bằng chứng; tách lỗi xác nhận
 trong source, lỗi tái hiện trên phần cứng và rủi ro chưa tái hiện.
 Mỗi lần sửa phải bổ sung cách kiểm tra lại để tránh lặp lỗi cũ.
@@ -526,3 +530,345 @@ Validation:84.890 assertions +8 Python tests pass; Keil0 error/warning. Hash và
 - B29: confirm error giảm rõ liên tiếp6ms trong cùng visible cue, nhả extra P sớm có fade0,05/ms; giữ releasing qua plateau, cần6ms đi ra ngoài rõ để cho phép hỗ trợ lại. Noise/cue/mode/Stop/invalid được test; không sửa corner memory hay deadlines.
 - Rise rate tăng0,04→0,05/ms, trầnextra0,6 vàBase45/Max85/PID nền không đổi. So ba candidate ARM cho thấy chỉ tăngrise không giảm phần hỗ trợ còn giữ khi thoát; B29 kết hợp choextra0,176 tại cùng input, cùngsteady correction23,4. Không phải đo quỹ đạo/lap time.
 - Validation:104149ARM+26Python tests, comparison vàKeil0Error/0Warning pass. Chưahardware-verified; có thể nhả quá sớm khi tín hiệu giảmerror là nhiễu hoặc nhánh khác. Xem [B29](corner-return-b29.md). BackupB28.
+
+## ERR-052 — Các góc khác nhau bị cộng vào một recovery budget
+
+- Owner báo đôi khi dừng ở góc vuông liên tục; ảnh OLED B29 có F:2/R:2,
+  tương ứng TURN timeout. Chưa có CSV của lần lỗi này; ảnh không xác định được
+  từng frame hoặc chứng minh mọi lần dừng có cùng nguyên nhân.
+- Source B29 giữ recovery_ms qua completed ALIGN và post-turn; chỉ stable center
+  100 ms/TTL mới xóa, nên góc mới tới sớm có thể dùng phần budget còn lại của góc cũ.
+- Test 10 góc đổi hướng: mất line 162 ms/góc, center 12 ms và valid travel 30 ms;
+  tổng vượt 1.200 ms. B29 fail150032 dù từng góc đã hoàn tất reacquisition.
+- Fix B30: completed ALIGN + valid TRACK liên tục >=24 ms + opposite valid shape
+  confirmed6ms/error>=1 pitch mới mở budget cho góc mới. Giữ cue/side mới;
+  same-side, invalid retarget, chưa hoàn tất ALIGN và glimpse không cấp lại.
+- Validation: chain/dt1–4ms/invalid interruption/same-side cùng suite timeout
+  chập chờn, GAP/watchdog pass. Không bỏ timeout thật. Chưa xác nhận trên xe.
+
+## ERR-053 — Hỗ trợ cua đợi confirm và đoạn arc sau loss còn tiến quá lâu
+
+- Owner báo góc sau thẳng còn vượt, muốn bẻ ngay. Source B29 đợi shape6ms mới
+  thêm P và giữ forward recovery arc28ms. Đây là cơ chế góp phần trễ/đi thêm có
+  thể tái hiện trong lệnh, chưa phải đo quán tính hoặc nguyên nhân duy nhất.
+- B30: gain ramp từ frame đầu shape cùng phía; chốt hướng/memory vẫn6ms, đổi
+  shape reset gain, giữ trần0,6 và baseline PD. Confirmed-loss arc12ms,
+  unknown-loss28ms; nhận valid ngay, không BRAKE dwell/geometry advance.
+- PureP comparison ARM: correction đầu cue18→19,44%, sau6ms19,8→22,32%, cùng
+  steady23,4%; soft curve/target45 không đổi. Các số là PWM, không phải tốc độ.
+- Validation: mirrored first-frame/ramp/bounds/arc/rejoin tests và build pass.
+  Cần thử cue giả, nhánh sát nhau và độ văng trên map thực.
+
+## ERR-054 — B29 nhanh hơn trong command trace nhưng owner báo chậm trên xe
+
+- Owner báo B28 16,3giây, B29 chậm hơn và lỗi chuỗi góc; chưa có lap lặp lại/CSV
+  để quy nguyên nhân cho riêng early-release hay gain rise.
+- B30 bỏ raw inward early release, phục hồi planner gate B28 và rise0,04/ms,
+  đồng thời cho gain bắt đầu sớm theo ERR-053. Không tăng Base/Max hoặc Kd.
+- B29 trend tests giữ như lịch sử, chỉ chạy khi bật experimental macro;
+  default B30 được test riêng giữ gain theo planner và không latch raw trend.
+- Validation tổng B30:104000 ARM assertions,8 parser/layout+18 receiver,
+  comparison, Keil0Error/0Warning. BackupB29 và hướng dẫn thử tại
+  [corner-chain-b30.md](corner-chain-b30.md). Chưa đo thành tích B30 trên xe.
+
+## ERR-055 — Rút arc làm pivot sớm hơn, không đạt mục tiêu rẽ cong
+
+- Owner xác nhận B30 chuỗi góc ổn định, nhưng chậm hơn mốc B28 16,3s và còn
+  cảm giác dừng bánh rồi xoay. Chưa có CSV B30 để định lượng các pha trên xe.
+- Source B28 rolling28ms; B30 confirmed rolling12ms. Test mới trên B30 fail
+  160030: sau20ms loss đã là pivot thay vì forward arc. Đây là regression so
+  với mục tiêu rolling, không phải chứng minh riêng nó gây toàn bộ thời gian tăng.
+- B31 cho confirmed initial arc tối đa80ms, steering ratio0,6 để bánh trong
+  có PWM tiến lớn hơn. Valid hủy arc ngay; không có minimum turn/geometry delay.
+  Unknown-loss28ms/0,8, post-turn retry/flicker không renew arc hay1200msbudget.
+- Validation: reacquisition từng frame2ms trong80ms, mirrored/dt1–4ms,
+  fallback/Max/Stop và chuỗi góc B30 vẫn pass. Rủi ro đi xa hơn nếu cue sai;
+  không khẳng định arc80ms đo được90° hoặc giúp nhanh hơn trước khi thử xe.
+
+## ERR-056 — PWM dương rất nhỏ vẫn có thể khiến bánh trong trông như dừng
+
+- Cùng synthetic valid extreme sau confirmed shape, pureP B28/B30 xuất85%/1%.
+  Không có BRAKE dwell vẫn không có nghĩa motor giữ chuyển động. Owner chưa đo
+  PWM tối thiểu; chưa chứng minh motor thật bị stall tại giá trị cụ thể.
+- B31 dùng inner floor chỉ khi confirmed same-side corner hoặc rolling rejoin,
+  min(speed*0,4, Max*0,25); steering cap tính trước antiwindup, common dùng Max
+  headroom. Ở45/85 có thể cho85/18; không có cue vẫn giữ ordinary PD.
+- Soft curve/GAP không đổi. Floor là command, không đo tốc độ;18% là trial.
+  Khả năng cung rộng/cắt nhánh còn phải đo thực tế. Không bỏ pivot cứu xe/Stop.
+- Validation B31:105133ARM assertions,8 parser/layout+18 receiver, comparison
+  B28/B30/B31 pass; Keil0Error/0Warning. BackupB30, xem
+  [rolling-turn-b31.md](rolling-turn-b31.md). Chưa hardware/lap-verified.
+
+## ERR-057 — Line valid±1500 không thoát ALIGN rồi bị TURN timeout
+
+- Owner báo B31 lần nào cũng dừng ở cuối chuỗi góc khi còn trên line, chưa hết
+  đích nên không có lap time. Ảnh F2/R2 xác nhận timeout; LIVE error+1500 không
+  phải frozen snapshot tại lúc fault. Chưa có CSV để xác định toàn bộ diễn biến.
+- Source chỉ công nhận reacquisition trong±1000; valid±1500 có thể bám liên tục
+  nhưng ALIGN timer vẫn hết. Test B31 fail170029 với1300ms valid±1500 hai phía.
+- Fix B32:40ms continuous valid inner line(abs(e)<=2pitch,mask&3C,no81) được
+  kết thúc ALIGN/xóa budget cũ; hủy arc_speed cũ, giữ memory/post-turn. Oldcenter
+  12ms vẫn handoff sớm nhưng không renew budget qua glimpse; giữ D khi handoff
+  moderate. Invalid/edge không có evidence40ms, mất thật vẫn fault.
+- Validation: mirrored/dt1–4ms, interrupted evidence,18ms glimpse/2ms loss,
+  outer-edge-only không settle, rolling/chain/watchdog cũ pass. Chưa thử xe.
+
+## ERR-058 — Timeout được xử lý trước frame line valid mới
+
+- Source guard ở đầu Control_Step có thể fault ngay khi vừa đủdeadline trước
+  nhánh valid, kể cả frame đó đã thấy đường. Không phải lỗi ADC speed hay PID gain.
+- B32 ưu tiên forward PD cho valid frame; nếu mất lại trước khi earn40ms thì
+  invalid kế tiếp vẫn fault theo budget cũ. Không tự Start lại sau fault.
+- Test valid tới đúngdeadline được ALIGN, invalid ngay sau đó phải fault;
+  valid40ms được TRACK và mất ngắn kế tiếp không ăn lại budget cũ. Không reset
+  timeout vô điều kiện từ một valid sample.
+- Validation tổng B32:105182ARM+26Python tests, Keil0Error/0Warning. BackupB31,
+  xem [recovery-exit-b32.md](recovery-exit-b32.md). Chưa có hardware/lap result.
+
+## ERR-059 — Floor bánh trong và arc dài đi ngược baseline phần cứng tốt nhất
+
+- Owner báo B32 hết17,4s so với B28 16,3s, cua mềm văng hơn. Chưa có CSV để
+  khẳng định riêng một nhánh chiếm chênh lệch1,1s.
+- Source B31/B32: cùng pureP cue/edge cho85/18 thay85/1, mean tăng43→51,5 và
+  chênh PWM giảm84→67; arc28→80ms. Cơ chế có thể góp phần làm cung rộng, chưa
+  phải đo chuyển động thật. “Không BRAKE dwell” không đủ chứng minh cua tối ưu.
+- B33 phục hồi nguyên hàm Follow/TurnOutput B28, gain cue6ms, no floor/common
+  boost, arc28ms. Giữ B30/B32 fixes tránh hồi quy timeout đã xác nhận.
+- Regression180028 fail trên B32;104188ARM+26Python pass sau sửa. Hai synthetic
+  traces pureP/defaultPD khớp B28 đủ64frame mỗi loại; không suy ra lap time.
+- Historical rolling tests thay bằng B28-restore tests; real fault/chain/valid
+  rejoin/GAP/watchdog vẫn test. Keil0errors/warnings, backupB32.
+- Phòng tránh: không gọi candidate là cải tiến tốc độ chỉ vì command tests pass;
+  lấy best owner-validated lap làm baseline, thay ít policy và thử lại trước
+  khi ghép thêm. Chưa có thời gian B33; xem [B33](b28-restore-b33.md).
+
+## ERR-060 — Phục hồi hai hàm B28 chưa phải phục hồi toàn bộ baseline
+
+- Owner báo B33 khoảng17s và chọn khôi phục đúngB28 mốc16,3s. B33 core đã khớp
+  hai traces B28, nhưng recovery guards vẫn khác; không thể coi toàn firmware
+  hoặc thành tích tương đương chỉ từ command comparison.
+- B28 gốc đã restore toàn snapshot; HEX build mới trùng SHA256 originalB28.
+  Test104022ARM+26Python, Keil0errors/warnings; source/HEX B33 đã backup.
+- Phân biệt B24 vớiB28 theo xác nhận owner. Chưa có lap sau restore; chưa thêm
+  speed algorithm. Error history đời sau được giữ vì known bugs vẫn liên quan.
+  Xem [original-b28-baseline.md](original-b28-baseline.md).
+
+## ERR-061 — Centroid cộng tín hiệu yếu tách rời cụm line mạnh
+
+- Owner báo B28 restore vẫn17s với cùng thông số; yêu cầu hướng khác. File
+  source/HEX đã kiểm tra khớp originalB28, chưa đọc được firmware trên chip và
+  chưa xác định nguyên nhân chênh lap bằng log hiện tại.
+- Source B28 mask500 nhưng centroid cộng cả strength150..499 xa core. Test
+  line giữa+isolated400 fail190035. Hai captures cũ có6/303 valid frames đổi
+  position khi chỉ dùng connected region; cực đại thay đổi751→-68. Không có
+  ground truth nên không kết luận old error sai hoặc gây toàn bộ thời gian mất.
+- B34 chỉ tính centroid từ one strong group và weak shoulder nối liền qua
+  strength>0; giữ mask/validity/raw/polarity/calibration. Không thêm delay hoặc
+  chọn branch trong multigroup. Tín hiệu yếu tách rời có thể là nhánh thật:
+  rủi ro preview bị bỏ, cần A/B trên xe.
+- Validation:105365ARM+26Python, original raw replay cùng expected2errors mới,
+  CRC audit2logs, Keil0errors/warnings. Control/robot/ADC/motor giữ B28 nguyên.
+  BackupB28 trước thử; xem [B34](local-centroid-b34.md). Chưa có lap B34.
+
+## ERR-062 — First-corner recovery còn rẽ tiến28ms khác chained retry
+
+- Owner thấy chuỗi góc phản ứng nhanh hơn góc sau thẳng, yêu cầu áp dụng nhánh
+  trực tiếp cho mọi góc. Source first loss đủ forward entry được arc28ms, còn
+  post-turn retry không được arc. Đây là khác biệt code, chưa có log chứng minh
+  nó là nguyên nhân duy nhất của vượt góc hoặc chênh lap.
+- New-policy regression200030 fail trên B34. B35 bỏ arc ở mọi accepted recovery,
+  phát signed pivot ngay khi đủ heading/confirmation. Valid data vẫn PID ngay,
+  GAP/6ms confirmation/deadline/Max/reversal guard không bỏ.
+- Handoff cùng existing pivot branch: cap40, không còn arc/Base exception.
+  Không đổi gains/Base/Max/estimator. Không hứa không còn đà tiến vật lý.
+- Validation105329ARM+26Python, Keil0errors/warnings; old arc-policy tests thay
+  bằng direct-entry tests, GAP filter coverage giữ. BackupB34, chi tiết
+  [B35](immediate-corner-b35.md). Chưa hardware/lap verified.
+
+## ERR-063 — Bỏ arc sau loss chưa giải quyết lực lái trước loss và handoff chậm
+
+- Owner gửi video mẫu và yêu cầu học hành vi vào góc gọn/đi tiếp nhanh. Không
+  có telemetry/source video, không thể kết luận gains, brake/reverse hoặc tốc
+  độ thật. Chưa có lap B35 để gán thời gian mất cho từng nhánh.
+- B35 visible corner dùng ceilingextra0,6; pivot handoff cap40, chờ center
+  window60ms. Đây là cấu hình source có thể thử cải thiện, không là root cause
+  vật lý đã chứng minh từ video.
+- B36 nâng extraP ceiling1,0 với eligibility/ramp cũ; steady e1,5 pureP lên27
+  thay23,4, không đổi nền. Fast narrow-center6ms cho handoff/targetBase sớm,
+  giữ D; không reset direction/episode budget. Broad/glimpse không qualify.
+- Baseline fail210028,94 standalone+105332integration ARM+26Python pass,
+  Keil0errors/warnings. Existing dash/Max/fault/deadline tests giữ.
+- Rủi ro cue giả/cắt nhánh và handoff vào line cũ; gain mạnh hơn có thể làm
+  overshoot tăng. Chưa thử xe hoặc đo lap; backupB35, xem [B36](video-corner-b36.md).
+
+## ERR-064 — Kd cao nhanh hơn nhưng góc liên tiếp giật bánh
+
+- Owner báo B36~16,11s ởBase55/Max85/Kp12/Ki0/Kd0,8–1,0; exact best Kd chưa
+  tách. Sau đó báo giật hơn setting cũ ở góc nối nhau. Không có trace thực mới
+  để quy mọi cú giật cho D, P saturation hay motor reversal.
+- Source raw Dterm có thể tạo correction nhảy mạnh theo central-eye steps.
+  B36 fail220032; synthetic±0,5pitch/2ms ởsameprofile peak42,5%. Không phải đo
+  tần số nhiễu hoặc jerk thật trên xe.
+- B37 thêm appliedD có cap/growth riêng khi highKd và near-center/corner context;
+  release giảm ngay, sign reversal bỏ oldD rồi tăng newD, không slewP. Scope
+  near-center vẫn bảo vệ khi post-turn hết, tránh bật lại rawD đột ngột ở tâm.
+- Comparative ARM peak9,2% trên input trên;4955highKd+94corner+105327integration
+  ARM+26Python pass. Có test legacyKd0,12 không đổi luậtD, outside-context giữ
+  direct response, Max/fault/antiwindup. Chưa physical-verified.
+
+## ERR-065 — Calm rejoin bị chậm bởi ceiling42 và ramp80 còn lại
+
+- Đây là giới hạn source để thử tối ưu, chưa có CSV xác nhận chiếm bao nhiêu
+  thời gian lap16,11s. Ramp nhanh160 trước đây chỉ dưới42, sau đó80 tớiBase55.
+- B37 chỉ dùng240 khi fast_exit đã earned, narrow central valid, no pending,
+  abs(e)<=0,8 và rawDterm<=8; không dùng appliedD đã bị limit để giả định xe yên.
+  RawD lớn/broad patch không đủ, startup và invalid không tăng tốc.
+- Synthetic43→55 request đạt50ms ởB37; B36 chưa đạt trong128ms trace. Không là
+  tốc độ bánh hoặc dự báo lap15s. Default chọnKd0,9 ởgiữa range owner báo.
+- Build0errors/warnings, backupB36 và hướng thử A/B tại [B37](high-kd-b37.md).
+  Mục tiêu15s chưa xác nhận; không tăngBase60 trong lượt này.
+
+## ERR-066 — B37 lại dừng F2/R2 ở chuỗi góc sau khi khôi phục B28
+
+- Ngày30/10/2026, owner báo dừng ở góc thứ ba lần nào cũng gặp. Ảnh B37 có
+  F2/R2 tương ứng recovery timeout; LIVE error sau Stop không chứng minh
+  validity tại fault. Chưa có CSV lần chạy này.
+- Root cause source: full original-B28 restore đã bỏ các sửa ERR-052/057/058;
+  B34–B37 chưa ghép lại. Timer có thể cộng các góc khác nhau vào một episode,
+  ALIGN không thoát khi valid±1500, và timeout chạy trước valid branch.
+- Baseline B37 fail230023 trên ARM: valid đến đúng deadline vẫn bị Stop.
+  Đây là defect source phù hợp triệu chứng, chưa chứng minh mọi Stop trên xe
+  đều có cùng diễn biến sensor. Không quy lỗi cho tốc độ ADC hoặc Kd từ ảnh.
+- B38 ưu tiên PD khi valid; invalid kế tiếp vẫn chịu deadline cũ. Continuous
+  valid inner-line40ms cho settled handoff/xóa budget, giữ D/memory. Completed
+  handoff +24ms valid travel + opposite shape confirmed6ms mới mở budget cho
+  góc khác; invalid/same-side/glimpse không renew. Recovery timer cộng một lần.
+- Validation:541 B38 assertions dt1–4ms/hai hướng,12 góc riêng, deadline,
+  continuous/interrupted evidence, valid moderate/edge, glimpse, retarget,
+  clipping/antiwindup/fault latch;105331 integration +94 corner +4955 highKd
+  và26 Python pass, Keil0errors/warnings. Không nới timeout/emulator bounds.
+- Status: source-fixed/emulation-tested, chờ hardware test tại góc thứ ba.
+  Backup actualB37 source/HEX trong backups/B37-before-B38-20261030.
+
+## ERR-067 — Trợ lực góc chờ6ms rồi mới ramp dù đã có directional shape
+
+- Source Car_Line_2026 phản ứng ngay với cue raw mới và tăng gain theo error;
+  source của ta vẫn chờ confirmation rồi mới bắt đầu extra-P. Ordinary P/D
+  trước đó đã phản ứng ngay; không gọi đây là toàn bộ thời gian trễ trên xe.
+- B38 bắt đầu extra-P ramp từ frame shape đầu, cùng ceiling1/rise0,04ms và
+  planner eligibility; đổi shape xóa gain, memory vẫn confirm6ms. Không ép
+  pivot trên valid hoặc thêm brake/advance. Soft-curve mask thường giữ luật cũ.
+- PureP/e1,5pitch: request đầu18→19,44%, tại6ms19,44→22,32%, cùngsteady27%.
+  Kd cao có thể saturate trước; không suy ra giảm lap hoặc hết overshoot.
+- Numeric entry regressions cập nhật có chủ đích; highKd/soft-curve/GAP/Stop
+  vẫn pass. Cue giả có thể bẻ sớm hơn; cần hardware A/B cùng55/85/12/0/0,9.
+- Không chép coefficient PID reference khác đơn vị, forced white-clear,
+  2ms brake hoặc −30% inner reverse vào valid tracking. Xem car-line-b38.md.
+
+## ERR-068 — Mixer đã chạm85/0 nên tăng gain không tạo thêm quyền quay
+
+- Ngày30/10/2026: owner báo Base20–30 rẽ ngay, Base45–55 vượt khoảng2cm rồi
+  mới quay tìm line; B38 không cải thiện lap. Chưa có trace mới để xác định
+  quán tính/slip/cue delay của lần thực tế.
+- Source B38 clip correction ởMax/2 và hai bánh>=0; tại Max85 có thể saturate
+  85/0. Tăng PID không vượt được bound. Extra-P còn mất khi broad cue thu hẹp
+  vào mắt ngoài dù cùng pending corner. Baseline fail240031; đây là giới hạn
+  luật output có thể tái hiện, không phải chứng minh duy nhất cho2cm quan sát.
+- B39 cấp reserve có trọng số duty35..45/error1,5..2,5, chỉ TRACK với pending
+  confirmed same-side outer line: tới85/−15 thay85/0. Tiếp tục extra-P cùng
+  ramp khi cue thu hẹp; no forced pivot/time pulse, zero gains không tự quay.
+  Giữ positive mean, Max/asymmetric antiwindup, driver guard và valid authority.
+- Raw inward rõ rệt nhả reserve; nhỏ<=0,05pitch và filtered rate>=−2pitch/s
+  được bỏ qua ở eligibility để không bật/tắt vì jitter. P/D không có deadband
+  mới. Confirmed `drive_corner_dir` tách khỏi strong single-eye retarget để
+  góc mới chưa confirm không mượn quyền quay của góc cũ.
+- Validation:1840 new ARM cases, including ±0,02pitch jitter/clear return,
+  both sides/dt1..4/TTL/gain0/lowBase/Max/I/Stop;32 archived-B38/current-B39
+  traces cho lowBase20/30,ordinary soft/no-cue/dash command-identical.106137
+  integration+94corner+4955highKd+541B38 và26Python pass. Keil0errors/warnings.
+- Status: command-law trial/source-tested, chưa hardware-verified. −15% không
+  chứng minh motor quay ngược thật hay giảm2cm/lap; kiểm tra lại trên chính map.
+  BackupB38, chi tiết yaw-reserve-b39.md. Không tăng defaultBase/Kd lượt này.
+
+## ERR-069 — Package map có giả định encoder và số liệu chưa nhất quán
+
+- JSON/template ghi encoder275ticks/rev, track153mm, boom165mm và2-run mapping;
+  owner xác nhận xe không encoder, track nhỏ hơn153mm, bánh gần68/boom~165mm.
+- Audit: metadata10,23m nhưng polyline32waypoints~11,97m; center-clear của
+  sensor không đo trục bánh đã tới đỉnh. Simulator đặt wheel velocity trực tiếp
+  và sinh ticks từ kinematics, không chứa motor inertia/current/slip model.
+- Xử lý: lưu geometry/images và provenance vào docs/reference, đọc template
+  như đề xuất; không đổi target sangESP32,1ms, không tạo timer/odometry giả,
+  không ép error0/advance theo165mm hoặc Stop theo số góc từ metadata14.
+- Validation: JSON rời/ZIP byte-identical, hash reference đã lưu, simulator
+  chỉ đọc source, không chạy batch trong gói. Không khẳng định trajectory image
+  là dữ liệu xe thực hoặc quỹ đạo tối ưu đã đo. Xem reference README/B39.
+## ERR-070 — B39 mất D sau PROBE ngắn và lái chưa đủ ở broad corner
+
+Log owner `run-20261030-143151-193568.csv`, CRC32 1CCA0436: PROBE mask98
+2 ms rồi TRACK maskF8/D0, inner PWM34,3→18,6%, sau đó TURN ít nhất304ms
+đến hết cửa sổ. Không có BRAKE/cả hai command0; không suy PWM thành vận tốc.
+B40 giữ D qua nonwhite PROBE<=4ms khi trở lại broad shape (dùng elapsed dt),
+thêm proportional bias từ shape confirmed thay vì đợi centroid ra mép.
+Giữ gain/profile, giới hạn output, B38 timeout, driver, ADC và Flash.
+Regression B39 fail250018, B40 pass60; integration106137 và các suite
+corner94/highKd4955/recovery541/yaw1840/Python26 pass. Keil0 errors/warnings.
+Các numeric expectation broad-corner cũ được cập nhật vì output đổi có chủ ý;
+không bỏ kiểm tra Max, antiwindup, lowBase, soft curve hoặc watchdog.
+Chưa hardware-verified; xem [B40](branch-entry-b40.md), backup B39 đã lưu.
+## RESTORE-20261030 — Owner yêu cầu B36 gốc thay B40
+
+Khôi phục đầy đủ firmware/config/project/scripts/tests B36; 172 archive paths
+khớp byte. Build mới khớp HEX B36 gốc SHA25636EE29522676E0A0E8B7C2C06C85EECBACEF284977AD202466F5644112F45774.
+Default45/85/12/0/0,12; lượt16,11s owner dùng OLED55/85/Kd0,8–1,0.
+B40 source/HEX giữ riêng trước restore. Không gộp B37–B40 fixes vào baseline.
+Keil0errors/0warnings,105332 ARM assertions và26 Python tests pass.
+Chi tiết: [B36 restored](b36-restored-20261030.md).
+
+## ERR-071 — B41 mở quyền lái nhưng cần kiểm tra bão hòa từng bánh
+
+Theo yêu cầu owner, triển khai trên B40 đã backup: tight1,15..1,65, reverse28,
+full reserve, common giảm35%*tight, shape4ms/bias từ2ms, D8ms/cap34/rise2400,
+rejoin48 và ramp150/220. Profile55/85,12/0/0,9. Wheel clipping có thể xuất hiện
+trước correction bound mới; antiwindup đã kiểm tra thêm từng actuator.
+Regression B40 fail260035; B41 pass810 và toàn bộ suite. Integration chia hai
+entry để giữ nguyên instruction/time/memory bounds; tổng106192 assertions.
+Keil0errors/0warnings. Chưa có lap B41; chi tiết corner-carve-b41.md.
+
+## ERR-072 — B42 tách active-eye cue và độ tin cậy vị trí
+
+- Nguồn: owner yêu cầu thay hướng B36/B41 theo source EYB và review đã chốt.
+  Log B39 CRC1CCA0436 có mask98 invalid trước F8; centroid F8 chỉ khoảng1,5pitch.
+- Thay controller bằng active-eye mixer: hysteresis600/450, side dominance,
+  corner forward cap35, P assistance trước D, reverse theo partner dương.
+  Default mới55/85,12/0/0,10/filter4ms; không gán gain0,9 cũ cho luật mới.
+- Hai cụm chỉ cung cấp observation khi một phía trội ít nhất300 và25% tổng;
+  mask giữ khoảng trống thật, confidence2 không phải hình học chắc chắn. Cụm
+  cân bằng/all-white/FF vẫn invalid. Không bỏ timeout để che mất line.
+- Qua review nhánh ALIGN, tìm thấy centroid cũ có thể ghi đè hướng outer-eye
+  khi reloss. B42 cho cue outer đã thấy ưu tiên; regression kiểm tra rõ case này.
+- Giữ GAP/driver/Flash và watchdog. Flags bits5..7 ghi rank; record48B và CSV27
+  cột không đổi. Tránh test dùng fake firmware tagB37: fixture đổi đúng B42.
+- Validation:29813 core/GAP +48341 IO/UI/driver/log ARM assertions,26 Python
+  pass; Keil0/0. Raw replay với default riêng mỗi bản: ở32538 B41invalid,
+  B42valid/eye+4/+35/−29,7. Không có mô hình cơ khí hoặc kết quả lap B42.
+- Backup B41 trước sửa, chi tiết active-eye-b42.md. Test luật số học B36–B41
+  lưu trong snapshot; default runner dùng suite phù hợp mixer/estimator mới.
+
+## ERR-073 — Step lớn ở TRACK→TURN do cặp quay đối xứng
+
+- Owner bỏ B42 sau khi báo18s/giật, yêu cầu B43 trên nền B41. Đã backup B42
+  đầy đủ và restore190 archive paths của B41 trước sửa; không ghép mixer EYB.
+- Raw fixture CRC1CCA0436: B41 ở32548 ra85/−27,7;32552 đổi36/−36 và32556
+  đổi50/−50. Đó là discontinuity trong command, chưa chứng minh nguyên nhân
+  cơ học duy nhất của thời gian lap hoặc motor đã dừng thật.
+- B43 near-line64/−22, white68/−30, carry=min(previous,48,Max); reverseTRACK
+  cap24, D10ms/cap28, rejoin52, new-corner8ms/post-center-clear40ms.
+- Replay:85/−23,8→64/−22→68/−30. Mean TURN21/19%, max entry step490→210
+  permille. State speed/carry48 trong TURN không phải mean command hoặc RPM.
+- Giữ D shaping B37 và timeout/valid handoff B38; không restore lỗi dừng của
+  B37. Scope này không dùng timer tiến theo khoảng246mm/boom165mm.
+- Validation:106198 integration ARM assertions +9007 standalone assertions,
+ 26 Python tests pass; Keil0errors/0warnings. New swing715 cases; baseline B41
+  fail280019. Driver register tests xác nhận same-sign transition không blank.
+- Status: chưa flash/đo lap B43. Xem swing-turn-b43.md và raw replay output.

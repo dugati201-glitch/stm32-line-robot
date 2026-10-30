@@ -1,3 +1,4 @@
+#include "legacy_profile.h"
 #include "control.h"
 #include "line_estimator.h"
 #include "control_tuning.h"
@@ -21,7 +22,7 @@ static float Abs(float x) { return x<0?-x:x; }
 static void Warm(ControlState *s,ControlParameters *p,unsigned duty,int sign)
 {
     unsigned i;
-    Control_Defaults(p); p->base_percent=p->straight_percent=duty; p->max_percent=90;
+    TestLegacyDefaults(p); p->base_percent=p->straight_percent=duty; p->max_percent=90;
     Control_Start(s);
     /* Seed an already moving command, then earn 48 ms of real guide history.
      * Startup acceleration is covered separately by the captured raw replay. */
@@ -125,7 +126,7 @@ static void RawReplay(void)
     unsigned i,j,sign;
     b23_replay_min_x10=1000;
     for(sign=0;sign<2;++sign) {
-        Line_Init(&line); Control_Defaults(&p); Control_Start(&s);
+        Line_Init(&line); TestLegacyDefaults(&p); Control_Start(&s);
         for(j=0;j<8;++j) { line.low[j]=captured_low[j]; line.high[j]=captured_high[j]; line.white[j]=captured_white[j]; }
         line.calibrated=line.white_reference_valid=1; line.raw_high_mask=0;
         /* The capture starts 109 ms after Start. Earlier samples were not
@@ -144,7 +145,15 @@ static void RawReplay(void)
             }
             Line_Update(&line,r->raw);
             CHECK(line.mask==r->mask && line.valid==r->valid);
-            if(line.valid) CHECK(line.error==r->error);
+            if(line.valid) {
+                uint32_t sum=0,weighted=0; unsigned k;
+                /* Preserve the hardware fixture's original B28/all-signal
+                 * error as a normalization check. B34 intentionally changes
+                 * two disconnected-weak frames, not the recorded raw data. */
+                for(k=0;k<8;++k) { sum+=line.strength[k]; weighted+=(uint32_t)line.strength[k]*k*1000U; }
+                CHECK((int16_t)((int32_t)(weighted/sum)-3500)==r->error);
+                CHECK(line.error==(i==79?-68:i==88?7:r->error));
+            }
             Control_Step(&s,&p,sign?-line.error:line.error,line.valid,sign?Mirror(line.mask):line.mask,2);
             CHECK(s.mode!=CONTROL_FAULT && s.mode!=CONTROL_BRAKE && s.mode!=CONTROL_TURN);
             CHECK(s.left>0 && s.right>0 && s.left<=850 && s.right<=850);

@@ -44,19 +44,30 @@ with open(sys.argv[1], 'rb') as source:
     # B20 adds entry braking/slew diagnostics and adversarial transition tests.
     # Keep the wall-clock limit; instruction budget is for the whole suite,
     # not a claim about the 2 ms hardware control deadline.
-    cpu.emu_start(symbols['test_entry'] | 1, 0, timeout=60000000, count=300000000)
+    entry = sys.argv[2] if len(sys.argv) > 2 else 'test_entry'
+    cpu.emu_start(symbols[entry] | 1, 0, timeout=60000000, count=300000000)
     read = lambda name: int.from_bytes(cpu.mem_read(symbols[name], 4), 'little')
     count, failure = read('test_count'), read('failure_line')
     if failure or not reached[0]:
         raise SystemExit(f'FAIL: assertions={count}, source failure line={failure}, completed={reached[0]}')
-    if 'blackbox_export_bytes' in symbols:
+    if 'blackbox_export_bytes' in symbols and (entry=='test_entry_io' or read('blackbox_export_bytes')):
         size = read('blackbox_export_bytes')
         assert 0 < size < 65535
         Path(sys.argv[1]).with_name('blackbox-export.csv').write_bytes(bytes(cpu.mem_read(0x60010000, size)))
-    if 'b23_replay_min_x10' in symbols:
+    if 'b23_replay_min_x10' in symbols and read('b23_replay_end_x10'):
         print('B22 seq2 raw replay on current controller (commanded PWM, not dynamics): '
               f'min={read("b23_replay_min_x10")/10:.1f}%, '
               f'rejoin={read("b23_replay_rejoin_x10")/10:.1f}%, '
               f'end={read("b23_replay_end_x10")/10:.1f}%.')
+    if 'b41_trace' in symbols:
+        import struct, csv
+        rows = list(struct.iter_unpack('<7i', bytes(cpu.mem_read(symbols['b41_trace'], 6*28))))
+        with Path(sys.argv[1]).with_name('b40-current-log-corner.csv').open('w', newline='') as stream:
+            writer = csv.writer(stream)
+            writer.writerow(['ms', 'error', 'b40_left', 'b40_right', 'current_left', 'current_right', 'correction_x1000'])
+            writer.writerows(rows)
+        for ms, error, old_l, old_r, new_l, new_r, correction in rows:
+            print(f'{ms}: e={error/1000:.3f}, B40={old_l/10:.1f}/{old_r/10:.1f}, '
+                  f'current={new_l/10:.1f}/{new_r/10:.1f}, mean={(new_l+new_r)/20:.1f}% requested PWM')
     print(f'PASS: {count} assertions executed from ARMCC-compiled C on Cortex-M3 emulation.')
     print('Coverage: controller, gaps/recovery, menu/interlocks/watchdogs, black-box ring/Flash/CSV, motor and log drivers with fake peripherals/clocks. No physical dynamics, Flash endurance or baud timing validation.')

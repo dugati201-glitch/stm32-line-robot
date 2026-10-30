@@ -1,0 +1,379 @@
+{
+  "track_name": "Robotrace Official Competition Arena 2.0m x 3.0m",
+  "version": "1.0.0",
+  "arena_dimensions_mm": {
+    "width": 3000.0,
+    "height": 2000.0
+  },
+  "line_specs": {
+    "color": "Black (#000000)",
+    "background": "White (#FFFFFF)",
+    "width_mm": 20.0
+  },
+  "robot_kinematics_mm": {
+    "track_width_W": 153.0,
+    "wheel_diameter_D": 68.0,
+    "sensor_boom_length_L": 165.0,
+    "sensor_bar_width": 83.0,
+    "sensor_count": 8,
+    "sensor_pitch": 11.86,
+    "encoder_ticks_per_rev": 275.0,
+    "mm_per_tick": 0.77683
+  },
+  "total_track_length_m": 10.23,
+  "total_curve_count": 14,
+  "waypoints": [
+    {
+      "id": 1,
+      "name": "START_BOX_CENTER",
+      "x": 270.0,
+      "y": 219.0,
+      "type": "START_BOX",
+      "v_lap1": 380,
+      "v_lap2": 380,
+      "action": "CRAWL_STRAIGHT",
+      "notes": "Xe nằm trong ô đen đặc 330x212mm, 8 mắt đen, bò thẳng ra ngoài"
+    },
+    {
+      "id": 2,
+      "name": "START_MARKER_CROSSBAR",
+      "x": 410.0,
+      "y": 219.0,
+      "type": "MARKER",
+      "v_lap1": 450,
+      "v_lap2": 600,
+      "action": "START_ODO_RESET",
+      "notes": "Vạch đen ngang cắt ngang đường, đánh dấu mốc Odometry t=0"
+    },
+    {
+      "id": 3,
+      "name": "EXIT_START_BOX",
+      "x": 436.0,
+      "y": 219.0,
+      "type": "LINE_ENTRY",
+      "v_lap1": 500,
+      "v_lap2": 1500,
+      "action": "ACCEL_LINE_FOLLOW",
+      "notes": "Bắt đầu line đơn 20mm, che đúng 2 mắt giữa (Ch3/Ch4)"
+    },
+    {
+      "id": 4,
+      "name": "DASHED_SECTION_START",
+      "x": 1300.0,
+      "y": 219.0,
+      "type": "DASHED_LINE",
+      "v_lap1": 500,
+      "v_lap2": 1500,
+      "action": "LOCK_HEADING_STRAIGHT",
+      "notes": "Vạch nét đứt dài 460mm, khi 8 mắt trắng thì giữ thẳng lái pos=0"
+    },
+    {
+      "id": 5,
+      "name": "DASHED_SECTION_END",
+      "x": 1760.0,
+      "y": 219.0,
+      "type": "LINE_RECONNECT",
+      "v_lap1": 500,
+      "v_lap2": 1500,
+      "action": "ACCEL_STRAIGHT",
+      "notes": "Kết thúc nét đứt, tăng tốc đoạn thẳng dài 740mm tới góc vuông 1"
+    },
+    {
+      "id": 6,
+      "name": "CORNER_1_ENTRY_90R",
+      "x": 2500.0,
+      "y": 219.0,
+      "type": "CORNER_90",
+      "v_lap1": 500,
+      "v_lap2": 500,
+      "action": "PIVOT_TURN_RIGHT",
+      "notes": "Góc vuông 90° rẽ Phải: Bánh Trái tăng tốc, bánh Phải khóa phanh chủ động"
+    },
+    {
+      "id": 7,
+      "name": "CORNER_2_ENTRY_90R",
+      "x": 2500.0,
+      "y": 755.0,
+      "type": "CORNER_90",
+      "v_lap1": 500,
+      "v_lap2": 500,
+      "action": "PIVOT_TURN_RIGHT",
+      "notes": "Góc vuông 90° rẽ Phải hướng về phía Tây (-X)"
+    },
+    {
+      "id": 8,
+      "name": "ZIGZAG_ENTRY",
+      "x": 2145.0,
+      "y": 755.0,
+      "type": "ZIGZAG_START",
+      "v_lap1": 500,
+      "v_lap2": 650,
+      "action": "PID_CORNER_TIGHT",
+      "notes": "Bắt đầu chữ chi Zic-zac 3 đỉnh nhọn và 3 đáy nhọn"
+    },
+    {
+      "id": 9,
+      "name": "ZIGZAG_PEAK_1",
+      "x": 1945.0,
+      "y": 560.0,
+      "type": "ZIGZAG_PEAK",
+      "v_lap1": 500,
+      "v_lap2": 600,
+      "action": "RAPID_SWITCH_LEFT",
+      "notes": "Đỉnh nhọn 1, góc quay gắt, không mở rộng lái"
+    },
+    {
+      "id": 10,
+      "name": "ZIGZAG_VALLEY_1",
+      "x": 1752.0,
+      "y": 755.0,
+      "type": "ZIGZAG_VALLEY",
+      "v_lap1": 500,
+      "v_lap2": 600,
+      "action": "RAPID_SWITCH_RIGHT",
+      "notes": "Đáy nhọn 1, chuyển hướng nhanh"
+    },
+    {
+      "id": 11,
+      "name": "ZIGZAG_PEAK_2",
+      "x": 1500.0,
+      "y": 610.0,
+      "type": "ZIGZAG_PEAK",
+      "v_lap1": 500,
+      "v_lap2": 600,
+      "action": "RAPID_SWITCH_LEFT",
+      "notes": "Đỉnh nhọn 2"
+    },
+    {
+      "id": 12,
+      "name": "ZIGZAG_VALLEY_2",
+      "x": 1248.0,
+      "y": 755.0,
+      "type": "ZIGZAG_VALLEY",
+      "v_lap1": 500,
+      "v_lap2": 600,
+      "action": "RAPID_SWITCH_RIGHT",
+      "notes": "Đáy nhọn 2"
+    },
+    {
+      "id": 13,
+      "name": "ZIGZAG_PEAK_3",
+      "x": 1055.0,
+      "y": 560.0,
+      "type": "ZIGZAG_PEAK",
+      "v_lap1": 500,
+      "v_lap2": 600,
+      "action": "RAPID_SWITCH_LEFT",
+      "notes": "Đỉnh nhọn 3"
+    },
+    {
+      "id": 14,
+      "name": "ZIGZAG_VALLEY_3",
+      "x": 861.0,
+      "y": 755.0,
+      "type": "ZIGZAG_VALLEY",
+      "v_lap1": 500,
+      "v_lap2": 600,
+      "action": "RAPID_SWITCH_RIGHT",
+      "notes": "Đáy nhọn 3"
+    },
+    {
+      "id": 15,
+      "name": "ARC_CURVE_ENTRY",
+      "x": 660.0,
+      "y": 755.0,
+      "type": "ARC_START",
+      "v_lap1": 500,
+      "v_lap2": 850,
+      "action": "DIFFERENTIAL_SMOOTH",
+      "notes": "Bắt đầu cung tròn bán nguyệt uốn xuống dưới sa bàn"
+    },
+    {
+      "id": 16,
+      "name": "ARC_CURVE_BOTTOM",
+      "x": 981.0,
+      "y": 1228.0,
+      "type": "ARC_APEX",
+      "v_lap1": 500,
+      "v_lap2": 850,
+      "action": "CONTINUOUS_ARC",
+      "notes": "Đỉnh đáy cung tròn bán nguyệt"
+    },
+    {
+      "id": 17,
+      "name": "ARC_CURVE_EXIT",
+      "x": 1216.0,
+      "y": 1132.0,
+      "type": "ARC_END",
+      "v_lap1": 500,
+      "v_lap2": 900,
+      "action": "TRANSITION_SLOPE",
+      "notes": "Thoát cung tròn, chuyển sang đoạn dốc xiên"
+    },
+    {
+      "id": 18,
+      "name": "INCLINE_TROUGH",
+      "x": 1904.0,
+      "y": 1295.0,
+      "type": "SLOPE_CORNER",
+      "v_lap1": 500,
+      "v_lap2": 750,
+      "action": "SLOPE_TURN",
+      "notes": "Đáy góc xiên"
+    },
+    {
+      "id": 19,
+      "name": "INCLINE_PEAK",
+      "x": 2156.0,
+      "y": 1103.0,
+      "type": "SLOPE_CORNER",
+      "v_lap1": 500,
+      "v_lap2": 800,
+      "action": "SLOPE_TURN",
+      "notes": "Đỉnh góc xiên, nối vào đoạn thẳng ngang"
+    },
+    {
+      "id": 20,
+      "name": "STRAIGHT_BEFORE_DROP",
+      "x": 2650.0,
+      "y": 1103.0,
+      "type": "CORNER_90",
+      "v_lap1": 500,
+      "v_lap2": 500,
+      "action": "PIVOT_TURN_RIGHT",
+      "notes": "Góc vuông 90° rẽ Phải đi xuống góc dưới bên phải"
+    },
+    {
+      "id": 21,
+      "name": "BOTTOM_RIGHT_CORNER",
+      "x": 2650.0,
+      "y": 1594.0,
+      "type": "CORNER_90",
+      "v_lap1": 500,
+      "v_lap2": 500,
+      "action": "PIVOT_TURN_RIGHT",
+      "notes": "Góc vuông 90° rẽ Phải hướng sang trái (về phía chicane 2)"
+    },
+    {
+      "id": 22,
+      "name": "CHICANE_2_ENTRY",
+      "x": 2139.0,
+      "y": 1594.0,
+      "type": "CHICANE_90",
+      "v_lap1": 500,
+      "v_lap2": 450,
+      "action": "PIVOT_LEFT",
+      "notes": "Rẽ Trái 90° xuống chicane 2"
+    },
+    {
+      "id": 23,
+      "name": "CHICANE_2_CORNER_A",
+      "x": 2139.0,
+      "y": 1840.0,
+      "type": "CHICANE_90",
+      "v_lap1": 500,
+      "v_lap2": 450,
+      "action": "PIVOT_RIGHT",
+      "notes": "Rẽ Phải 90° ở đáy chicane 2"
+    },
+    {
+      "id": 24,
+      "name": "CHICANE_2_CORNER_B",
+      "x": 1802.0,
+      "y": 1840.0,
+      "type": "CHICANE_90",
+      "v_lap1": 500,
+      "v_lap2": 450,
+      "action": "PIVOT_RIGHT",
+      "notes": "Rẽ Phải 90° ngoi lên khỏi chicane 2"
+    },
+    {
+      "id": 25,
+      "name": "CHICANE_2_EXIT",
+      "x": 1802.0,
+      "y": 1594.0,
+      "type": "CHICANE_90",
+      "v_lap1": 500,
+      "v_lap2": 450,
+      "action": "PIVOT_LEFT",
+      "notes": "Rẽ Trái 90° tiếp tục đoạn thẳng ngang"
+    },
+    {
+      "id": 26,
+      "name": "CHICANE_1_ENTRY",
+      "x": 1494.0,
+      "y": 1594.0,
+      "type": "CHICANE_90",
+      "v_lap1": 500,
+      "v_lap2": 450,
+      "action": "PIVOT_LEFT",
+      "notes": "Rẽ Trái 90° xuống chicane 1"
+    },
+    {
+      "id": 27,
+      "name": "CHICANE_1_CORNER_A",
+      "x": 1494.0,
+      "y": 1840.0,
+      "type": "CHICANE_90",
+      "v_lap1": 500,
+      "v_lap2": 450,
+      "action": "PIVOT_RIGHT",
+      "notes": "Rẽ Phải 90° ở đáy chicane 1"
+    },
+    {
+      "id": 28,
+      "name": "CHICANE_1_CORNER_B",
+      "x": 1201.0,
+      "y": 1840.0,
+      "type": "CHICANE_90",
+      "v_lap1": 500,
+      "v_lap2": 450,
+      "action": "PIVOT_RIGHT",
+      "notes": "Rẽ Phải 90° ngoi lên khỏi chicane 1"
+    },
+    {
+      "id": 29,
+      "name": "CHICANE_1_EXIT",
+      "x": 1201.0,
+      "y": 1594.0,
+      "type": "CHICANE_90",
+      "v_lap1": 500,
+      "v_lap2": 500,
+      "action": "PIVOT_LEFT",
+      "notes": "Rẽ Trái 90° tiếp tục vào đoạn thẳng dài 993mm"
+    },
+    {
+      "id": 30,
+      "name": "BOTTOM_LEFT_CORNER",
+      "x": 208.0,
+      "y": 1594.0,
+      "type": "CORNER_90",
+      "v_lap1": 500,
+      "v_lap2": 500,
+      "action": "PIVOT_TURN_RIGHT",
+      "notes": "Góc vuông 90° rẽ Phải hướng thẳng lên Ô ĐÍCH"
+    },
+    {
+      "id": 31,
+      "name": "FINISH_BOX_ENTRY",
+      "x": 208.0,
+      "y": 1013.0,
+      "type": "FINISH_MARK",
+      "v_lap1": 200,
+      "v_lap2": 200,
+      "action": "DETECT_FINISH_CRAWL",
+      "notes": "Chạm ô vuông đen FINISH (>=6 mắt đen, 2 mắt ngoài đen), giảm tốc bò 120mm"
+    },
+    {
+      "id": 32,
+      "name": "FINISH_STOP_POINT",
+      "x": 208.0,
+      "y": 893.0,
+      "type": "STOP",
+      "v_lap1": 0,
+      "v_lap2": 0,
+      "action": "ACTIVE_BRAKE_STOP",
+      "notes": "Dừng hoàn toàn giữa Ô ĐÍCH, lưu Profile NVS và báo còi bíp"
+    }
+  ]
+}

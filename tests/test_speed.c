@@ -1,3 +1,5 @@
+#include "swing_expected.h"
+#include "legacy_profile.h"
 #include "control.h"
 #include "control_tuning.h"
 extern volatile unsigned test_count, failure_line;
@@ -11,7 +13,7 @@ static void Check(int ok, unsigned line)
 /* Keep the released 55/85 profile covered independently of new defaults. */
 static void Profile55(ControlParameters *p)
 {
-    Control_Defaults(p); p->base_percent=p->straight_percent=55;
+    TestLegacyDefaults(p); p->base_percent=p->straight_percent=55;
 }
 
 static float Abs(float x) { return x<0?-x:x; }
@@ -48,7 +50,7 @@ static void CheckEntryAndSteering(void)
             for(i=0;i<100;++i) {
                 Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,dt);
                 CHECK(s.mode==CONTROL_TRACK && !s.brake_count);
-                CHECK(s.left>0 && s.right>0 && sign*(s.left-s.right)>0);
+                CHECK(s.left>=-280 && s.right>=-280 && s.left+s.right>0 && sign*(s.left-s.right)>0);
                 CHECK(s.left<=850 && s.right<=850);
             }
             CHECK(s.target==p.base_percent && s.corner_pending_dir==sign);
@@ -66,7 +68,7 @@ static void CheckEntryAndSteering(void)
         CHECK(Abs(s.last_correction-sign*6.0f)<0.001f);
         s=seed;
         Control_Step(&s,&p,sign*500,1,sign>0?0x10:0x08,2);
-        CHECK(Abs(s.last_correction)>6.0f && Abs(s.last_correction)<10.0f && s.left>0 && s.right>0);
+        CHECK(Abs(s.last_correction)>6.0f && Abs(s.last_correction)<12.01f && s.left>0 && s.right>0);
         Control_Step(&s,&p,sign*3500,1,sign>0?0x80:0x01,2);
         CHECK(Abs(s.last_correction)>10 && s.mode==CONTROL_TRACK);
     }
@@ -82,7 +84,7 @@ static void CheckEntryAndSteering(void)
     /* Direct high-duty recovery still yields immediately to valid line. */
     FastLoss(&s,&p,1);
     Control_Step(&s,&p,0,1,0x18,2);
-    CHECK(s.mode==CONTROL_ALIGN && s.recovery_arc && s.left>0 && s.right>0 && s.target==90 && !s.brake_ms);
+    CHECK(s.mode==CONTROL_ALIGN && !s.recovery_arc && s.left>0 && s.right>0 && s.target==52 && !s.brake_ms);
     for(i=0;i<5;++i) Control_Step(&s,&p,0,1,0x18,2);
     CHECK(s.mode==CONTROL_TRACK && s.post_turn_ms);
     for(i=0;i<29;++i) {
@@ -119,7 +121,7 @@ void RunSpeedTests(void)
     p.straight_percent=60;
     Control_Step(&s,&p,1900,1,0x60,2);
     CHECK(s.target==55 && s.speed_reason==SPEED_BASE);
-    CHECK(s.mode==CONTROL_TRACK && s.left>0 && s.right>0 && !s.brake_count);
+    CHECK(s.mode==CONTROL_TRACK && s.left>=0 && s.right>=0 && s.left+s.right>0 && !s.brake_count);
     CHECK(!s.curve_valid); /* Outward drift must not earn the curve bridge. */
     for(i=0;i<300;++i) Control_Step(&s,&p,1900,1,0x60,2);
     CHECK(s.target==55 && s.speed==55 && s.mode==CONTROL_TRACK && !s.brake_count);
@@ -155,7 +157,7 @@ void RunSpeedTests(void)
     Control_Step(&s,&p,0,1,0x18,2);
     CHECK(s.mode==CONTROL_TRACK && s.target==55);
     for(i=0;i<4;++i) Control_Step(&s,&p,1500,1,0xF8,2);
-    CHECK(s.mode==CONTROL_TRACK && s.target==p.base_percent && s.left>=0 && s.right>=0);
+    CHECK(s.mode==CONTROL_TRACK && s.target==p.base_percent && s.left>=-280 && s.right>=-280 && s.left+s.right>0);
     /* Both directions of a repeated square pattern retain bounded recovery
      * despite the faster pivot/recenter profile and brief central handoffs. */
     for(j=0;j<4;++j) {
@@ -164,22 +166,21 @@ void RunSpeedTests(void)
         for(i=0;i<6;++i) Control_Step(&s,&p,0,1,0x18,2);
         for(i=0;i<3;++i) Control_Step(&s,&p,0,0,0,2);
         CHECK((s.mode==CONTROL_TURN || s.mode==CONTROL_BRAKE) && s.turn_dir==sign && !s.may_cross_gap);
-        /* A rolling entry can use the bounded arc; sustained loss must still
-         * reach the symmetric pivot without renewing its search deadline. */
+        /* Every accepted loss now requests the symmetric pivot immediately,
+         * without renewing its search deadline. */
         CHECK(sign*(s.left-s.right)>0);
-        if(s.recovery_arc) CHECK(s.left>0 && s.right>0);
-        else CHECK(s.left==sign*500 && s.right==-sign*500);
+        CHECK(!s.recovery_arc);
+        CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0));
         for(i=0;i<85;++i) Control_Step(&s,&p,0,0,0,2);
-        CHECK(s.left==sign*500 && s.right==-sign*500);
+        CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0));
         Control_Step(&s,&p,0,1,0x18,2);
-        CHECK(s.mode==CONTROL_ALIGN && s.left==400 && s.right==400 && !s.brake_ms);
+        CHECK(s.mode==CONTROL_ALIGN && s.left==483 && s.right==483 && !s.brake_ms);
         for(i=0;i<5;++i) Control_Step(&s,&p,0,1,0x18,2);
         CHECK(s.mode==CONTROL_TRACK && s.post_turn_ms && s.speed_guard_ms && s.recovery_ms<1200);
         {
             float before=s.speed;
             Control_Step(&s,&p,0,1,0x18,2);
-            CHECK(s.speed>=before && s.speed<=40 && !s.curve_valid);
-            if(before<39.68f) CHECK(s.speed>before+0.319f && s.speed<=before+0.321f);
+            CHECK(s.speed>before+0.479f && s.speed<=before+0.481f && s.speed<=p.base_percent && !s.curve_valid);
         }
     }
     Profile55(&p); p.base_percent=45; p.straight_percent=55; p.max_percent=75; Control_Start(&s);
@@ -187,7 +188,7 @@ void RunSpeedTests(void)
     for(i=0;i<1500;++i) {
         float before=s.speed;
         Control_Step(&s,&p,0,1,0x18,2);
-        CHECK(s.speed<=before+0.161f && s.target==45 && s.speed_bonus==0);
+        CHECK(s.speed<=before+0.301f && s.target==45 && s.speed_bonus==0);
         CHECK(s.left<=450 && s.right<=450 && !s.brake_count);
     }
     CHECK(s.left==450 && s.right==450 && p.max_percent==75);
@@ -262,9 +263,9 @@ void RunSpeedTests(void)
             Control_Step(&s,&p,0,0,0,2);
             CHECK(s.mode==CONTROL_TURN && !s.brake_count && sign*(s.left-s.right)>0);
         }
-        CHECK(s.left==sign*500 && s.right==-sign*500 && s.speed==50);
+        CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0) && s.speed==48);
         Control_Step(&s,&p,0,1,0x18,2);
-        CHECK(s.mode==CONTROL_ALIGN && s.left==400 && s.right==400);
+        CHECK(s.mode==CONTROL_ALIGN && s.left==483 && s.right==483);
         FastLoss(&s,&p,sign);
         Control_Step(&s,&p,sign*1500,1,sign>0?0x40:0x02,2);
         CHECK(s.mode==CONTROL_ALIGN && !s.brake_ms && s.left>=0 && s.right>=0);

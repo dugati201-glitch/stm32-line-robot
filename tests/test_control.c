@@ -1,3 +1,4 @@
+#include "legacy_profile.h"
 #include "control.h"
 #include "line_estimator.h"
 volatile unsigned test_count, failure_line;
@@ -31,10 +32,11 @@ void RunAmbiguousTests(void);
 void RunDirectTurnTests(void);
 void RunFixedBaseTests(void);
 void RunCornerFlowTests(void);
-void RunArcTests(void);
+void RunGapMemoryTests(void);
 void RunScheduledTests(void);
-void RunCornerReturnTests(void);
 void RunBoardTests(void);
+void RunLocalCentroidTests(void);
+void RunImmediateCornerTests(void);
 void test_entry(void)
 {
     LineEstimator line;
@@ -87,14 +89,15 @@ void test_entry(void)
     for (i = 0; i < 8; ++i) raw[i] = 2000;
     CHECK(!Line_SetWhiteReference(&line, raw));
     Control_Defaults(&p);
-    CHECK(p.base_percent==45 && p.max_percent==85);
-    CHECK(p.straight_percent==45);
-    CHECK(p.kp==12.0f && p.ki==0.0f && p.kd==0.12f);
+    CHECK(p.base_percent==55 && p.max_percent==85);
+    CHECK(p.straight_percent==55);
+    CHECK(p.kp==12.0f && p.ki==0.0f && p.kd==0.90f);
+    TestLegacyDefaults(&p);
     /* Keep the original low-duty regression sequence independent of new trial defaults. */
     p.base_percent=20; p.straight_percent=20; p.max_percent=30;
     Control_Start(&state);
     Control_Step(&state, &p, 0, 1, 0x18, 2);
-    CHECK(state.left == state.right && state.left <= 1);
+    CHECK(state.left == state.right && state.left <= 3);
     for (i = 0; i < 1500; ++i) Control_Step(&state, &p, 0, 1, 0x18, 2);
     CHECK(state.left == 200 && state.right == 200); /* Base reached; Max is a ceiling only. */
     Control_Step(&state, &p, 1000, 1, 0x10, 2);
@@ -136,15 +139,21 @@ void test_entry(void)
     CHECK(state.integral <= 10.0f && state.integral >= -10.0f);
     Control_Stop(&state, FAULT_NONE);
     CHECK(state.mode == CONTROL_STOPPED && !state.left && !state.right);
-    RunCornerReturnTests();
+    RunImmediateCornerTests();
+    RunLocalCentroidTests();
     RunScheduledTests();
-    RunArcTests();
+    RunGapMemoryTests();
     RunCornerFlowTests();
     RunFixedBaseTests();
     RunDirectTurnTests();
     RunAmbiguousTests();
     RunRecoveryTests();
     RunSpeedTests();
+    test_done();
+}
+/* B41: run IO/UI suites in a fresh emulation, preserving the fixed bounds. */
+void test_entry_io(void)
+{
     RunRobotTests();
     RunMenuTests();
     RunBlackboxTests();

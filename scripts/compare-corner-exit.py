@@ -1,5 +1,6 @@
 """Compare B28, faster-rise-only, and B29 command traces; no physical plant.
 
+Historical comparison: use B29 backup after later firmware replaces it.
 Default reference is the local B28 backup ZIP. Before release, pass
 --baseline-source D:/stm32-linefollower-spl/app/control.c (while still B28).
 """
@@ -33,11 +34,20 @@ def main():
                 key = next(n for n in archive.namelist() if n.replace('\\','/') == 'app/' + name)
                 (reference / name).write_bytes(archive.read(key))
     compiler = Path(r'C:\Keil_v5\ARM\ARMCC\bin')
+    candidate = ROOT / 'app/control.c'
+    historical = ROOT / 'backups/B29-before-B30-20261029/B29-source.zip'
+    if historical.exists():
+        saved = work / 'candidate-b29'
+        saved.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(historical) as archive:
+            for filename in files:
+                (saved / filename).write_bytes(archive.read('app/' + filename))
+        candidate = saved / 'control.c'
     traces = {}
     for name, source, defines in [
         ('baseline-b28', reference / 'control.c', []),
-        ('faster-rise-only', ROOT / 'app/control.c', ['-DCONTROL_CORNER_RETURN_CONFIRM_MS=0']),
-        ('b29-return', ROOT / 'app/control.c', []),
+        ('faster-rise-only', candidate, ['-DCONTROL_CORNER_RETURN_CONFIRM_MS=0']),
+        ('b29-return', candidate, []),
     ]:
         control, entry, axf = [work / (name + ext) for ext in ('.o','-entry.o','.axf')]
         common = ['--cpu','Cortex-M3','--c99','-O1','-g','-I',str(source.parent)]

@@ -1,5 +1,8 @@
 # Các quyết định kiến trúc (ADR)
 
+Hiện tại: **B39**, xem [yaw-reserve-b39.md](yaw-reserve-b39.md) và ADR-050.
+Các mục B38 trở về trước mô tả lịch sử tại thời điểm triển khai.
+
 ## ADR-001: Bare-metal C dùng SPL
 
 Trạng thái: đã thống nhất.
@@ -275,3 +278,217 @@ Owner yêu cầu bỏ phanh rồi mới rẽ. B24 supersedes policy giữ recove
 - Evidence: B28 fail140035. So sánhB28/rise-only/B29 cùng synthetic trace: entry19,44/19,8/19,8; steady23,4 cảba; extra sau6msreturn0,264/0,264/0,176. ChọnB29 theo hành vi lệnh, không dự báo thành tích.
 - Tradeoff: rise nhanh/return fade có thể làm phản ứng với cue giả hoặc nhả thiếu lực, cần thửxe. Gain metadata vẫn làgain nền, Flash/CSV khôngđổi. Không tăngBase/Max hoặcđổi driver/SWD trong lượt này.
 - Validation:104149ARM+26Python+candidatecomparison, Keil0errors/warnings. Chi tiết [B29](corner-return-b29.md), ERR-051; backupB28.
+
+## ADR-040 — Budget riêng cho góc mới có bằng chứng và visible steering sớm (B30)
+
+- Context: owner báo B29 chậm hơn B28, góc sau thẳng vượt line và chuỗi góc dừng
+  F:2/R:2. Regression150032 tái hiện nhiều góc đã bắt lại nhưng cộng dồn budget.
+- Decision: chỉ kết thúc post-turn episode cũ khi completed ALIGN, >=24ms valid
+  TRACK liên tục và confirmed opposite valid shape6ms, error cùng phía>=1pitch.
+  Giữ pending/last-side mới; invalid flicker hoặc TURN retarget không renew.
+- Tăng extraP ngay frame đầu shape bằng ramp0,04/ms, cùng trần0,6. Rollback
+  raw-trend early release B29; dùng planner gate B28. Confirmed-loss arc12ms,
+  unknown-loss28ms. Không straight boost hoặc BRAKE trước cua; valid giữ PD.
+- Tradeoff: first-frame cue có thể giả, rút arc có thể cần pivot sớm; một hàng
+  sensor không chứng minh đường parabol hay nhận đúng nhánh. Vẫn giữ deadline
+  thật, watchdog/Stop/Max/driver/calibration và Flash/CSV schema.
+- Evidence:104000ARM+26Python tests pass, actual ARM command comparison so
+  B28/B29/B30, Keil0errors/warnings; không có dynamics/lap prediction.
+  Xem [B30](corner-chain-b30.md), ERR-052–054. BackupB29; chưa hardware-verified.
+
+## ADR-041 — Rolling corner có phạm vi và fallback, không tăng Base (B31)
+
+- Context: owner xác nhận B30 ổn định chuỗi góc nhưng chậm hơn B28 16,3s;
+  yêu cầu hai bánh tiếp tục tiến để cua theo cung, tránh dừng bánh rồi xoay.
+- Decision: giữ fix budget của B30; mixer của confirmed same-side corner/
+  rolling rejoin dành floor cho bánh trong và dùng Max headroom cho bánh ngoài.
+  Floor min(speed*0,4, Max*0,25); steering_limit<= (Max-inner)/2 trước antiwindup.
+  Đây là ngoại lệ có phạm vi được owner yêu cầu, không là global inner floor.
+- Initial confirmed rolling opportunity80ms/ratio0,6, unknown28ms/0,8; mọi
+  valid frame lấy lại PD ngay. Retry không renew, pivot chỉ fallback khi rolling
+  không thành công; toàn bộ deadline/Stop/watchdog/estimator giữ nguyên.
+- Evidence: baseline B30 fail160030, actual ARM trace cho85/18 và rolling qua
+  loss34ms thay vì pivot.105133ARM+26Python tests pass, Keil0errors/warnings.
+  Không có plant, không suy ra quỹ đạo/thời gian vòng từ PWM.
+- Tradeoff: mean duty có thể cao hơn Base khi dùng headroom, cung có thể rộng
+  hơn và đi xa nếu cue sai. Owner chưa đo minimum running PWM;18% thử nghiệm.
+  Không có encoder/IMU để bảo đảm vận tốc/góc, vẫn phải thử xe. Xem
+  [B31](rolling-turn-b31.md), ERR-055/056, backup actual B30 chưa commit.
+
+## ADR-042 — Công nhận sustained valid tracking trước line timeout (B32)
+
+- Context: B31 owner test lặp lại đều dừng khi xe còn trên line, không có lap
+  hoàn tất. F2/R2; source fail170029 với valid±1500 giữ liên tục trong ALIGN.
+- Decision: ưu tiên xử lý valid trước line-timeout; fresh valid chưa xóa budget.
+  Continuous40ms valid inner line, abs(e)<=2pitch/mask&3C/no81, mới công nhận
+  settled tracking và release budget, kể cả lệch±1,5. Invalid/edge ngắt evidence.
+  Xóa arc_speed cũ khi settle, không cấp lại blind arc do reset timer.
+- Giữ center12ms handoff và deadline qua glimpse; handoff moderate không resetD.
+  Timeout vẫn áp dụng khi invalid nếu chưa earn sustained tracking; không
+  auto-restart, không bỏ fault latch/watchdog. B31 mixer/rolling/gains45/85 giữ.
+- Evidence: mirrored steady line, deadline boundary, dt1–4ms, interrupted valid,
+  outeredge và fault latch tests; toàn suite controller/menu/driver/log pass,
+  Keil0Error/0Warning. Chi tiết [B32](recovery-exit-b32.md), ERR-057/058.
+- Tradeoff: valid sensor không xác nhận đúng nhánh, LIVE error sau Stop không
+  dựng lại frame lỗi. Chưa có CSV/hardware test B32; cần chạy lại đoạn cuối và
+  hoàn tất map trước khi đánh giá tốc độ. Backup actual B31 trước sửa.
+
+## ADR-043 — Phục hồi B28 controller core thay vì tiếp tục floor/arc dài (B33)
+
+- Context: owner báo B32 hoàn tất17,4s, cua mềm văng, so mốc B28 16,3s. Không
+  có CSV mới để định lượng phần mất thời gian. Hướng thử B31/B32 chưa đạt mục tiêu.
+- Decision: phục hồi byte-exact Follow/TurnOutput từ B28: confirmed6ms gain,
+  no inner floor/common boost, arc28ms/ratio0,8. Giữ12/0/0,12 và45/85. Chưa thêm
+  một biến thể PID hoặc tăng Base; test trước khi tiếp tục chỉnh.
+- Giữ fixes B30 chain budget và B32 valid±1500/valid-before-line-timeout, không
+  rollback toàn repo về B28 rồi mang lỗi đã xác nhận trở lại. Menu/driver/Flash,
+  estimator/DMA/watchdog/calibration/Start không đổi.
+- Evidence: baseline B32 fail180028;104188ARM+26Python tests, Keil0errors/warnings.
+  Hai64-frame traces pureP và defaultPD khớpB28, source hai hàm byte-equal.
+  Historical floor/80ms tests thay trong default suite bằng restore-policy tests.
+- Limits: khớp input/state synthetic không đo quỹ đạo hay lap. Bánh trong có thể
+  rất thấp/0 khi cần bẻ mạnh; pivot vẫn cứu sau loss. Không hứa16,3s trước thử xe.
+  Chi tiết [B33](b28-restore-b33.md), ERR-059, backup actual uncommittedB32.
+
+## ADR-044 — Khôi phục đầy đủ B28 gốc theo lựa chọn owner
+
+- Owner báo B33 khoảng17s, chọn B28 mốc16,3s sau khi ban đầu ghiB24. Không
+  gán nhầm thành tích choB24; giữ riêng cả hai original source/HEX và manifest.
+- Restore toàn bộ snapshot B28 vào active source/build/test, không ghép B30/B32.
+  B33 có source/HEX backup trước thay đổi, không xóa historical files đời sau.
+- Build mới khớp SHA256 HEX gốc B28,0errors/warnings;104022ARM+26Python pass.
+  Chưa nạp board hoặc đo lại thành tích. B28 known recovery limitations vẫn có.
+- Giữ error/decision history, đánh dấu current đã restore để tránh suy luận
+  firmware còn chứa fixes đời sau. Chưa chỉnh tăng tốc hoặc corner policy mới.
+  Xem [baseline B28](original-b28-baseline.md).
+
+## ADR-045 — Đổi estimator thay vì tiếp tục đổi luật motor (B34 trial)
+
+- Context: owner xác nhận B28 restore~17s ở45/85/PID12/0/0,12 và muốn hướng
+  mới. Pre-edit source/HEX khớp original; không có log của lap này để quy nguyên
+  nhân chênh lệch. Dừng ghép thay đổi gain/arc/floor như các lượt trước.
+- Decision: chỉ estimator centroid của one strong group dùng connected support
+  và weak shoulders; bỏ disconnected sub-threshold islands khỏi position.
+  Mask/validity/strength/normalization không đổi, không select multigroup branch.
+  Controller/robot/driver/ADC/Flash giữ byte-exact B28, tagB34 để audit.
+- Evidence: baseline fail190035, C replay2 changed raw frames với expected
+  position cụ thể, audit CRC2logs có6/303 valid frames thay đổi;105365ARM+26Python
+  pass, Keil0errors/warnings. Không có ground truth/vận tốc/lap prediction.
+- Tradeoff: weak island có thể là nhánh thật nhìn trước, không phải noise;
+  bỏ nó có thể làm cua muộn. Giữ B28 HEX gốc và yêu cầu A/B thực tế, không gọi
+  candidate tốt hơn từ test pass. Known B28 recovery issues vẫn còn.
+- Chi tiết [B34](local-centroid-b34.md), ERR-061; backup B28-original-before-B34.
+
+## ADR-046 — Direct recovery chung cho góc đầu và chained retry (B35)
+
+- Owner yêu cầu giảm tối đa hai bánh tiến thêm hoặc rẽ luôn ở mọi góc, áp dụng
+  phản ứng chained turn cho góc sau thẳng. Đổi policy thay vì đổi gains/estimator.
+- BeginRecovery luôn arc_speed0; TurnOutput bỏ nhánh both-forward28ms. Chỉ
+  accepted loss có heading/confirmation mới TURN; valid giữ forward PD. GAP,
+  split6ms/side memory và1200msdeadline không đổi. Không invent direction.
+- Duty50/36 clippedMax, driver reversal guard giữ. Rejoin dùng cap40 của pivot
+  branch hiện có; không kèm tăng rejoin speed hoặc min-spin/geometry advance.
+- B34 fail200030,105329ARM+26Python tests pass, Keil0errors/warnings; gap-memory
+  tests được giữ khi thay historical arc tests bằng immediate-entry coverage.
+- Quán tính thật chưa đo, lệnhcommon0 không có nghĩa không tiến thêm. Chưa có
+  lap B35; biết nguy cơ giật/quét lố, giữ backupB34. Xem [B35](immediate-corner-b35.md), ERR-062.
+
+## ADR-047 — Selective corner P và evidence-based fast handoff (B36 trial)
+
+- Owner yêu cầu sửa theo video mẫu: đổi hướng gọn và tiếp tục nhanh. Không có
+  source/telemetry của xe mẫu nên chỉ chọn mục tiêu hành vi, không suy gains.
+- Tăng scheduled-extra ceiling0,6→1,0, giữ confirm6ms và ramp0,04/ms; nền12/0/
+  0,12 và45/85 không đổi. Không correction floor hoặc valid forced pivot.
+- Narrow central line08/10/18,abs(e)<=0,6,no pending, liên tục6ms mới cho fast
+  handoff và targetBase theo ramp cũ; giữ D. Không reset direction/budget, invalid
+  hoặc error lớn/corner mới xóa flag. Legacy handoff/cap còn là fallback.
+- Evidence: baseline fail210028;94standalone+105332integration ARM+26Python,
+  Keil0errors/warnings. Tests riêng executable để giữ map/budget emulator cũ.
+- Tradeoff: cue giả có thể bẻ quá và center6ms có thể vẫn là nhánh cũ. Video
+  không xác nhận chiều motor hoặc control mode; chưa có lap B36. BackupB35,
+  chi tiết [B36](video-corner-b36.md), ERR-063. Known recovery bugs không đổi.
+
+## ADR-048 — Owner high-Kd profile, scoped applied-D và calm exit ramp (B37)
+
+- Owner báo16,11s ở55/85/12/0/Kd0,8..1,0 nhưng giật hơn ởchuỗi góc. Chọn0,9
+  làm default thử, không giả định đây là exact best lap hoặc có thể bảo đảm15s.
+- HighKd>=0,5 tại near narrow-center hoặc corner context: appliedD cap24 và
+  rise1600pp/s, release giảm/sign cũ ngay; không slewP, không đổi rawD/planner
+  filter, gain-corner/pivot/estimator. Bảo vệ tâm line tiếp tục sau post-turn.
+- Earned fast exit chỉ ramp240 khi rawDterm<=8, inner narrow line/e<=0,8 và
+  no pending. Không tăng startup hay tốc độ trên invalid; giữ Base55/Max85.
+- Evidence: B36 fail220032; scriptedsameprofile jitterpeak42,5→9,2 và calm
+  exit request43→55 đạt50ms (old chưa tới trong128ms). Không có dynamics/lap
+  prediction.4955new+94corner+105327integration ARM+26Python pass, Keil0errors/
+  warnings. Historical test profiles pinned explicitly, product/menu metadata
+  defaults vẫn được test. Separate executable giữ emulator bounds.
+- Rủi ro: D cap/ramp có thể làm giảm damping cần thiết hoặc đổi phản ứng tại
+  scope boundaries; P/retarget vẫn có thể gây giật. Cần A/B B36 cùngprofile,
+  không so với45/0,12 rồi quy lợi ích cho algorithm. BackupB36,
+  chi tiết [B37](high-kd-b37.md), ERR-064/065; known timeout issues chưa đổi.
+
+## ADR-049 — Valid authority, evidence để tách recovery và trợ lực góc sớm (B38)
+
+- Owner báo B37 dừng lặp lại ở góc thứ ba, cung cấp source Car_Line_2026 và
+  muốn học cách cua gọn trong video. Ảnh F2/R2 và baseline fail230023 xác nhận
+  defect deadline-before-valid trong source; ảnh không cung cấp toàn bộ trace.
+- Ưu tiên valid PD, giữ1200ms cho invalid; chỉ inner-line evidence40ms mới
+  giải phóng budget cũ và moderate ALIGN. Completed handoff/valid travel24ms/
+  confirmed opposite shape6ms mới coi là góc mới; không cấp budget từ glimpse.
+- Extra-P bắt đầu từ shape đầu theo cùng ramp/gate, memory giữ6ms. Giữ55/85,
+  12/0/0,9, B37 D shaping, direct loss pivot, estimator/ADC/driver/Flash.
+- Không sao chép detector/gate/phanh/đảo bánh của reference thành một khối:
+  chúng khác units và policy; white-clear từng gây regression trên xe của ta.
+  Source mới còn giảm Base theo error, nên không chứng minh giữ nguyên tốc độ
+  qua mọi góc. Video không cho biết PWM hoặc chính source xe mẫu.
+- Evidence:541 new +94 corner +4955 highKd +105331 integration ARM,26 Python;
+  Keil0errors/warnings. BackupB37, chi tiết tại car-line-b38.md/ERR-066/067.
+  Source-fixed không phải hardware/lap-verified; không hứa15s từ emulator.
+
+## ADR-050 — Signed reserve theo visible corner, không chạy waypoint bằng timer (B39)
+
+- Owner báo B38 chưa cải thiện; lowBase bẻ kịp nhưng45/55 overshoot~2cm. Chọn
+  sửa output saturation85/0 và mất assist khi cue thu hẹp, giữ Base/PID và các
+  phần soft/GAP để tách ảnh hưởng. Không tăng gain khi correction đã chạm trần.
+- Reserve tới15% inner reverse chỉ với confirmed visible side, duty/error
+  weights, raw-return và rate gates; P/D chọn correction thực. Hướng tìm line
+  khác với quyền signed steering; new single eye không cấp lại quyền này.
+- Hủy reserve trên inward step rõ, dung sai nhỏ riêng cho eligibility tránh
+  command chatter; giữ driver reversal guard và không có both-wheel dwell.
+  Không khẳng định PWM−15 đã là reverse motor hoặc kinematics đo được.
+- Map dùng làm reference: xe không encoder/track width chưa đo; không áp2-run
+  odometry/timer/ESP32 theo template. Simulation không có inertia/slip model,
+  metadata/path length chưa khớp nên không dùng để suy lap hoặc vị trí runtime.
+- Evidence: baseline fail240031;1840 yaw+541recovery+4955highKd+94corner+
+  106137integration ARM,26Python;32traces cùnggain/B38archive. Keil0errors/
+  warnings. BackupB38. Cần A/B cùngsetting và video/CSV trên map trước khi
+  kết luận hết2cm hoặc nhanh hơn. Xem B39,ERR-068/069 và reference README.
+## ADR-051 — B40 ưu tiên góc nhìn thấy trước recovery
+
+Theo CORNER log B39, sửa derivative reset qua nonwhite PROBE ngắn và bổ sung
+proportional branch bias có xác nhận. Không tăng Base/Kd hay lực search để
+che thời gian vào cua muộn. Giữ mọi giới hạn recovery/driver và dữ liệu Flash.
+Chi tiết evidence, luật và validation: [B40](branch-entry-b40.md).
+
+## ADR-052 — B42 tách active-eye mixer khỏi centroid và recovery bookkeeping
+
+Owner yêu cầu thực hiện hướng EYB sau review, thay cơ chế hỗ trợ visible corner
+B36–B41. Chọn strengths/hysteresis để lấy cue tức thời, dedicated corner ceiling,
+P-before-D reverse assist và common recovery ramp. Tách vị trí liên tục khỏi
+observation tách cụm có hướng; không coi mọi multi-group là line đáng tin.
+
+Giữ hardware/ADC2ms/menu/driver guards/watchdogs/GAP và bounded recovery. ALIGN
+không thêm drive cap cho valid line. Ki0, defaultKd0,10/filter4ms là trial mới;
+không dùng gain0,9 của luật cũ hoặc suy ra gain từ số mắt đơn thuần.
+Blackbox giữ layout, thêm active-eye rank vào flags theo firmware tagB42.
+Backup B41 đầy đủ trước sửa. Evidence và validation: [B42](active-eye-b42.md).
+
+## ADR-053 — B43 quay bất đối xứng trên nền B41
+
+Theo authorization owner, bỏ active-eye trial B42 và khôi phục B41. Thay
+recovery counter-rotation bằng64/−22 khi còn signal và68/−30 khi trắng, mirror
+theo hướng. Giữ carry tối đa48 (không boost low duty), rejoin cap52, rút qualification
+góc tiếp8ms và center clear40ms. D10ms/cap28/reverseTRACK24 là trial yêu cầu.
+Giữ Max, GAP, antiwindup, driver guard và bounded recovery/valid-before-timeout.
+Source/replay chỉ xác nhận command step nhỏ hơn, không đo giảm quán tính hoặc
+lap trên xe. Backup B42/source checks và verification: [B43](swing-turn-b43.md).

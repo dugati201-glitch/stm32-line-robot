@@ -1,3 +1,5 @@
+#include "swing_expected.h"
+#include "legacy_profile.h"
 #include "control.h"
 #include "control_tuning.h"
 extern volatile unsigned test_count, failure_line;
@@ -23,7 +25,7 @@ void RunCornerFlowTests(void)
     int sign;
     /* Independent of defaults: P must act on a visible soft bend immediately.
      * B25's extra slew only supplies 1.6 instead of 6 in the first 2 ms frame. */
-    Control_Defaults(&p); p.base_percent=p.straight_percent=45; p.max_percent=85;
+    TestLegacyDefaults(&p); p.base_percent=p.straight_percent=45; p.max_percent=85;
     p.kp=12; p.ki=p.kd=0;
     for(sign=-1;sign<=1;sign+=2) {
         Warm(&s,&p);
@@ -34,7 +36,7 @@ void RunCornerFlowTests(void)
         Control_Step(&s,&p,-sign*500,1,sign>0?0x08:0x10,2);
         CHECK(Abs(s.last_correction+sign*6.0f)<0.001f);
     }
-    Control_Defaults(&p);
+    TestLegacyDefaults(&p);
     CHECK(p.base_percent==45 && p.straight_percent==45 && p.max_percent==85);
     /* Continuous soft bends remain forward PD, no pulse/pivot/straight boost. */
     for(sign=-1;sign<=1;sign+=2) {
@@ -50,9 +52,9 @@ void RunCornerFlowTests(void)
          * in the first frame, no new brake dwell and no reset down to 30%. */
         for(i=0;i<3;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
         Control_Step(&s,&p,0,0,0,2);
-        CHECK(s.mode==CONTROL_TURN && s.recovery_arc && s.left>0 && s.right>0 && sign*(s.left-s.right)>0);
+        CHECK(s.mode==CONTROL_TURN && !s.recovery_arc && s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0));
         Control_Step(&s,&p,sign*1000,1,sign>0?0x30:0x0C,2);
-        CHECK(s.mode==CONTROL_ALIGN && s.target==45 && s.speed>44 && s.speed<=45);
+        CHECK(s.mode==CONTROL_ALIGN && s.target==45 && s.speed==45);
         CHECK(s.left>0 && s.right>0 && sign*(s.left-s.right)>0 && !s.brake_count);
         /* An opposite corner before alignment completes still changes direction. */
         Control_Step(&s,&p,-sign*2500,1,sign>0?0x02:0x40,2);

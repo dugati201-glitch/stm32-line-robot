@@ -58,6 +58,49 @@ void RunMotorTests(void)
     CHECK(!TIM4->CCR1 && TIM4->CCR2==720);
     DriverMotor_SetDuty(200,-200);
     CHECK(TIM4->CCR1==720 && TIM4->CCR2==720);
+    /* B39 valid-line yaw reserve: only the inner channel gets a reversal
+     * guard, while the85% outer request keeps running. No both-wheel Stop. */
+    DriverMotor_StopBrake(); DriverMotor_SetDuty(600,600);
+    DriverMotor_SetDuty(850,-150);
+    CHECK(TIM4->CCR2==3060 && !TIM4->CCR1);
+    DriverMotor_SetDuty(850,-150);
+    CHECK(TIM4->CCR2==3060 && TIM4->CCR1==540);
+    DriverMotor_SetDuty(550,550);
+    CHECK(TIM4->CCR2==1980 && !TIM4->CCR1);
+    DriverMotor_SetDuty(550,550);
+    CHECK(TIM4->CCR2==1980 && TIM4->CCR1==1980);
+    DriverMotor_SetDuty(-150,850);
+    CHECK(!TIM4->CCR2 && TIM4->CCR1==3060);
+    DriverMotor_SetDuty(-150,850);
+    CHECK(TIM4->CCR2==540 && TIM4->CCR1==3060);
+    /* B41 signed carve requests keep the unchanged per-wheel guard. */
+    DriverMotor_StopBrake(); DriverMotor_SetDuty(550,550);
+    DriverMotor_SetDuty(850,-280);
+    CHECK(TIM4->CCR2==3060 && !TIM4->CCR1);
+    DriverMotor_SetDuty(850,-280);
+    CHECK(TIM4->CCR2==3060 && TIM4->CCR1==1008);
+    DriverMotor_SetDuty(550,550);
+    CHECK(TIM4->CCR2==1980 && !TIM4->CCR1);
+    DriverMotor_SetDuty(550,550);
+    CHECK(TIM4->CCR2==1980 && TIM4->CCR1==1980);
+    DriverMotor_SetDuty(-280,850);
+    CHECK(!TIM4->CCR2 && TIM4->CCR1==3060);
+    DriverMotor_SetDuty(-280,850);
+    CHECK(TIM4->CCR2==1008 && TIM4->CCR1==3060);
+    /* B43 same-side Follow -> near-line swing -> white swing has no reversal blank. */
+    DriverMotor_StopBrake(); DriverMotor_SetDuty(850,-240);
+    CHECK(TIM4->CCR2==3060 && TIM4->CCR1==864);
+    DriverMotor_SetDuty(640,-220);
+    CHECK(TIM4->CCR2==2304 && TIM4->CCR1==792);
+    DriverMotor_SetDuty(680,-300);
+    CHECK(TIM4->CCR2==2448 && TIM4->CCR1==1080);
+    DriverMotor_StopBrake(); DriverMotor_SetDuty(-240,850);
+    CHECK(TIM4->CCR2==864 && TIM4->CCR1==3060);
+    DriverMotor_SetDuty(-220,640);
+    CHECK(TIM4->CCR2==792 && TIM4->CCR1==2304);
+    DriverMotor_SetDuty(-300,680);
+    CHECK(TIM4->CCR2==1080 && TIM4->CCR1==2448);
+    DriverMotor_StopBrake(); DriverMotor_SetDuty(200,-200);
     /* A lower requested ceiling also bounds the briefly retained forward wheel. */
     DriverMotor_SetDuty(-100,100);
     CHECK(!TIM4->CCR1 && TIM4->CCR2==360);

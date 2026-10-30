@@ -10,8 +10,8 @@ static float Approach(float current, float target, float step)
 void Control_Defaults(ControlParameters *p)
 {
     /* Trial gains: error is in sensor pitches, derivative is per second. */
-    p->kp=12.00f; p->ki=0.0f; p->kd=0.12f;
-    p->base_percent=45; p->straight_percent=45; p->max_percent=85;
+    p->kp=12.00f; p->ki=0.0f; p->kd=0.90f;
+    p->base_percent=55; p->straight_percent=55; p->max_percent=85;
     p->advance_ms=0; p->align_ms=CONTROL_REACQUIRE_DEFAULT_MS;
 }
 void Control_Stop(ControlState *s, ControlFault fault)
@@ -36,7 +36,10 @@ void Control_Stop(ControlState *s, ControlFault fault)
     s->recovery_arc_speed=0; s->recovery_arc=0;
     s->gap_correction=0;
     s->corner_gain=0; s->search_near_line=0;
-    s->corner_inward_ms=s->corner_outward_ms=0; s->corner_releasing=0;
+    s->fast_center_ms=0; s->fast_exit=0;
+    s->d_output=0;
+    s->recovery_visible_ms=s->post_turn_visible_ms=0;
+    s->drive_corner_dir=0;
     s->line_stop_reason=LINE_STOP_NONE;
 }
 void Control_Start(ControlState *s) { Control_Stop(s,FAULT_NONE); s->mode=CONTROL_TRACK; }
@@ -50,40 +53,28 @@ static void RememberSide(ControlState *s, int8_t side)
 }
 static void TurnOutput(ControlState *s, float maximum)
 {
-    float duty=Limit(s->search_near_line?CONTROL_PIVOT_PERCENT:CONTROL_SEARCH_FAST_PERCENT,0,maximum);
-    /* No brake/reversal stage on initial confirmed loss: reuse the actual
-     * entering common PWM and create yaw with two forward wheel commands.
-     * Count this short arc inside the existing continuous recovery deadline.
-     * Valid line cancels the maneuver immediately; there is no minimum turn. */
-    if(s->recovery_arc_speed>0 && s->recovery_ms<CONTROL_RECOVERY_ARC_MS) {
-        float common=Limit(s->recovery_arc_speed,0,maximum/(1.0f+CONTROL_RECOVERY_ARC_STEERING));
-        float correction=s->turn_dir*common*CONTROL_RECOVERY_ARC_STEERING;
-        s->left=(int16_t)((common+correction)*10.0f);
-        s->right=(int16_t)((common-correction)*10.0f);
-        s->speed=s->target=common; s->speed_reason=SPEED_CORNER;
-        s->last_correction=correction; s->recovery_arc=1;
-        return;
-    }
+    float outer=Limit(s->search_near_line?CONTROL_PIVOT_OUTER_PERCENT:CONTROL_SEARCH_OUTER_PERCENT,0,maximum);
+    float inner=Limit(s->search_near_line?CONTROL_PIVOT_INNER_REVERSE_PERCENT:CONTROL_SEARCH_INNER_REVERSE_PERCENT,0,maximum);
+    /* B43: forward-biased swing; no timed forward arc or brake dwell. */
     s->recovery_arc=0;
-    /* Confirmed loss: request rotation now, with no forward-common ramp or
-     * brake dwell. The motor driver retains its per-wheel reversal guard.
-     * A zero common PWM request does not mean zero physical forward speed. */
-    s->target=duty; s->speed_reason=SPEED_RECOVERY;
-    s->left=(int16_t)((s->turn_dir>0?duty:-duty)*10.0f);
-    s->right=-s->left;
-    /* Track the requested PWM magnitude; do not carry straight-line duty into RECENTER. */
-    s->speed=(Abs(s->left)+Abs(s->right))/20.0f;
+    s->target=outer; s->speed_reason=SPEED_RECOVERY;
+    s->left=(int16_t)((s->turn_dir>0?outer:-inner)*10.0f);
+    s->right=(int16_t)((s->turn_dir>0?-inner:outer)*10.0f);
+    /* Carry only an already earned bounded duty into visible-line handoff.
+     * This is neither mean wheel PWM nor a measured vehicle speed. */
+    s->speed=Limit(s->speed,0,Limit(CONTROL_TURN_REJOIN_CARRY_PERCENT,0,maximum));
 }
 static void BeginRecovery(ControlState *s, int8_t direction)
 {
-    /* Post-turn retries keep their old episode budget and pivot fallback.
-     * Never renew the forward arc through centered reacquisition flicker. */
-    s->recovery_arc_speed=!s->post_turn_ms && s->left>=0 && s->right>=0 &&
-        (s->left+s->right)>=CONTROL_RECOVERY_ARC_MIN_PERCENT*20.0f?
-        (s->left+s->right)/20.0f:0;
+    /* Same direct recovery for a first corner and a chained retry. Keep these
+     * state fields reserved/zero; never re-enable a timed forward arc. */
+    s->recovery_arc_speed=0;
     s->recovery_arc=0;
     /* B24: operator requested direct steering, without a brake-before-turn pulse. */
+    s->fast_center_ms=0; s->fast_exit=0;
     s->mode=CONTROL_TURN; s->turn_dir=direction;
+    s->recovery_visible_ms=s->post_turn_visible_ms=0;
+    s->drive_corner_dir=0;
     s->speed_bonus=0; s->cruise_ms=0; s->speed_guard_ms=CONTROL_SPEED_GUARD_MS;
     /* A loss just after reacquisition belongs to the same bounded episode. */
     if(!s->post_turn_ms) s->recovery_ms=0;
@@ -97,7 +88,7 @@ static void BeginRecovery(ControlState *s, int8_t direction)
     s->integral=s->derivative=s->planner_rate=0; s->lost=1; s->saturation_ms=0;
     s->brake_ms=0;
     s->corner_gain=0;
-    s->corner_inward_ms=s->corner_outward_ms=0; s->corner_releasing=0;
+    s->d_output=0;
 }
 static void RecoveryOutput(ControlState *s, float maximum)
 {
@@ -138,31 +129,9 @@ static void AmbiguousHold(ControlState *s, float base, float maximum, float dt)
     s->right=(int16_t)Limit(s->guide_right*scale,0,maximum*10.0f);
     s->last_correction=(s->left-s->right)/20.0f;
 }
-static void UpdateDerivative(ControlState *s, float e, float dt, uint32_t dt_ms)
+static void UpdateDerivative(ControlState *s, float e, float dt)
 {
-    /* Consecutive observed inward movement can lead the filtered planner.
-     * This only releases extra corner P; it never changes PID direction,
-     * speed, sensor validity or the corner/recovery memory. */
-#if CONTROL_CORNER_RETURN_CONFIRM_MS > 0
-    if(s->mode==CONTROL_TRACK &&
-       s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS && e*s->shape_dir>=1.0f && e*s->last_error>0) {
-        float change=Abs(e)-Abs(s->last_error);
-        if(change < -CONTROL_CORNER_TREND_STEP_PITCH) {
-            s->corner_outward_ms=0;
-            if(s->corner_inward_ms<CONTROL_CORNER_RETURN_CONFIRM_MS) s->corner_inward_ms+=(uint16_t)dt_ms;
-            if(s->corner_inward_ms>=CONTROL_CORNER_RETURN_CONFIRM_MS) s->corner_releasing=1;
-        } else if(change > CONTROL_CORNER_TREND_STEP_PITCH) {
-            s->corner_inward_ms=0;
-            if(s->corner_outward_ms<CONTROL_CORNER_RETURN_CONFIRM_MS) s->corner_outward_ms+=(uint16_t)dt_ms;
-            if(s->corner_outward_ms>=CONTROL_CORNER_RETURN_CONFIRM_MS) s->corner_releasing=0;
-        } else s->corner_inward_ms=s->corner_outward_ms=0;
-    } else {
-        s->corner_inward_ms=s->corner_outward_ms=0; s->corner_releasing=0;
-    }
-#else
-    s->corner_inward_ms=s->corner_outward_ms=0; s->corner_releasing=0;
-#endif
-    s->derivative+=(dt/(0.015f+dt))*((e-s->last_error)/dt-s->derivative);
+    s->derivative+=(dt/(CONTROL_D_FILTER_SECONDS+dt))*((e-s->last_error)/dt-s->derivative);
     /* Planner rate is separate from the PD derivative. */
     s->planner_rate+=(dt/(CONTROL_SPEED_RATE_FILTER_SECONDS+dt))*(s->derivative-s->planner_rate);
     s->last_error=e;
@@ -194,6 +163,7 @@ static void RememberGuide(ControlState *s, float e, uint8_t mask, uint32_t dt_ms
         if(s->stable_ms>=CONTROL_LAST_SIDE_CLEAR_MS) { s->last_side=0; s->last_side_ms=0; }
         if(s->stable_ms>=CONTROL_CORNER_CLEAR_MS) {
             s->corner_pending_ms=0; s->corner_pending_dir=0;
+            s->drive_corner_dir=0;
         }
         if(s->stable_ms>=CONTROL_POST_TURN_CLEAR_MS && s->post_turn_ms) {
             s->post_turn_ms=0; s->post_turn_dir=0; s->recovery_ms=0;
@@ -215,9 +185,10 @@ static void HoldGuide(ControlState *s, float base, float maximum)
     s->speed=(s->left+s->right)/20.0f; s->target=s->speed;
     s->last_correction=(s->left-s->right)/20.0f;
 }
-static void Follow(ControlState *s, const ControlParameters *p, float e, float target, float maximum, float dt, uint8_t smooth)
+static void Follow(ControlState *s, const ControlParameters *p, float e, float target, float maximum, float dt, uint8_t smooth, uint8_t mask, uint8_t outward)
 {
-    float steering_limit, candidate, correction, common, proportional_gain;
+    float steering_limit, steering_low, steering_high, candidate, correction, common, candidate_common, proportional_gain;
+    float tight=0, reverse_limit=0, branch_bias=0;
     float accel=CONTROL_ACCEL_PERCENT_PER_SECOND;
     /* Startup/rejoin ramp only; ordinary tracking has one fixed Base target.
      * The mixer can lower common duty to preserve steering within Max. */
@@ -225,30 +196,89 @@ static void Follow(ControlState *s, const ControlParameters *p, float e, float t
         CONTROL_SOFT_DECEL_PERCENT_PER_SECOND:CONTROL_DECEL_PERCENT_PER_SECOND;
     if(s->post_turn_ms && !s->corner_pending_ms && Abs(e)<=1.0f &&
        s->speed<CONTROL_EXIT_ACCEL_CEILING_PERCENT) accel=CONTROL_EXIT_ACCEL_PERCENT_PER_SECOND;
+    /* Only calm narrow-line data after an earned fast handoff can use the
+     * faster exit ramp. Raw high D blocks it even if applied D is limited. */
+    if(s->post_turn_ms && s->fast_exit && !s->corner_pending_ms &&
+       Abs(e)<=CONTROL_FAST_EXIT_ACCEL_PITCH && (mask&0x18U) && !(mask&0xE7U) &&
+       Abs(p->kd*s->derivative)<=CONTROL_FAST_EXIT_RAW_D_MAX)
+        accel=CONTROL_FAST_EXIT_ACCEL_PERCENT_PER_SECOND;
     s->target=target;
     s->speed=Approach(s->speed,target,(target>s->speed?accel:decel)*dt);
     steering_limit=Limit(s->speed,0,maximum*0.5f);
-    /* Start steering harder while the line is still visible, without B24's
+    /* B41: confirmed direction plus current broad/outer evidence grants
+     * authority at 1.15..1.65 pitches. Return and ALIGN still release it. */
+    if(s->mode==CONTROL_TRACK && s->corner_pending_ms && s->drive_corner_dir &&
+       s->drive_corner_dir==s->corner_pending_dir &&
+       e*s->corner_pending_dir>CONTROL_TIGHT_START_PITCH && outward &&
+       s->corner_pending_dir*s->derivative>=-CONTROL_TIGHT_INWARD_RATE_PITCH_PER_SECOND &&
+       ((s->corner_pending_dir>0?(mask&0xC0U):(mask&0x03U)) ||
+        s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS)) {
+        tight=Limit((Limit(s->speed,0,target)-CONTROL_TIGHT_DUTY_START_PERCENT)/
+                    (CONTROL_TIGHT_DUTY_FULL_PERCENT-CONTROL_TIGHT_DUTY_START_PERCENT),0,1)*
+              Limit((Abs(e)-CONTROL_TIGHT_START_PITCH)/
+                    (CONTROL_TIGHT_FULL_PITCH-CONTROL_TIGHT_START_PITCH),0,1);
+        reverse_limit=Limit(CONTROL_TIGHT_REVERSE_PERCENT,0,maximum*0.5f)*tight;
+    }
+    /* B41: ramp branch bias from 2ms of visible directional shape, reaching
+     * full bias at 4ms confirmation. This does not latch a new search side. */
+    if(s->mode==CONTROL_TRACK && s->shape_ms>=CONTROL_BRANCH_BIAS_START_MS &&
+       e*s->shape_dir>=1.0f && outward &&
+       s->shape_dir*s->derivative>=-CONTROL_TIGHT_INWARD_RATE_PITCH_PER_SECOND) {
+        float duty_weight=Limit((Limit(s->speed,0,target)-CONTROL_TIGHT_DUTY_START_PERCENT)/
+            (CONTROL_TIGHT_DUTY_FULL_PERCENT-CONTROL_TIGHT_DUTY_START_PERCENT),0,1);
+        branch_bias=s->shape_dir*p->kp*duty_weight*
+            Limit((float)s->shape_ms/CONTROL_SHAPE_CONFIRM_MS,0,1)*
+            Limit(CONTROL_BRANCH_AIM_PITCH-Abs(e),0,CONTROL_BRANCH_AIM_PITCH-1.0f);
+    }
+    /* Preserve ordinary counter-steering bounds. Only the observed turn side
+     * gets extra authority; full reserve allows up to 28% inner reverse at Max85. */
+    steering_low=-steering_limit-(s->corner_pending_dir<0?reverse_limit:0);
+    steering_high=steering_limit+(s->corner_pending_dir>0?reverse_limit:0);
+    {
+        float demand=p->kd*s->derivative;
+        if(p->kd>=CONTROL_CORNER_D_MIN_KD &&
+           (s->corner_pending_ms || s->post_turn_ms || s->mode==CONTROL_ALIGN ||
+            (Abs(e)<=CONTROL_FAST_EXIT_ACCEL_PITCH && (mask&0x18U) && !(mask&0xE7U)))) {
+            float cap=Limit(CONTROL_CORNER_D_MAX_PERCENT,0,steering_limit);
+            float previous=Limit(s->d_output,-cap,cap);
+            demand=Limit(demand,-cap,cap);
+            /* Discard old-sign D before building the new sign. Falling
+             * demand releases now, so the limiter cannot prolong old yaw. */
+            if(demand*previous<=0) previous=0;
+            s->d_output=Abs(demand)<=Abs(previous)?demand:
+                Approach(previous,demand,CONTROL_CORNER_D_RISE_PER_SECOND*dt);
+        } else s->d_output=demand;
+    }
+    /* Start steering harder on the first directional visible shape, without B24's
      * abrupt correction floor. A cue is heuristic, not proof of a 90deg turn.
      * Ordinary soft curves, improving error and RECENTER keep ordinary PD. */
-    if(s->mode==CONTROL_TRACK && s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS &&
-       e*s->shape_dir>=1.0f && e*s->planner_rate>=0) {
-        float desired=s->corner_releasing?0:CONTROL_CORNER_GAIN_MAX*Limit(Abs(e)-1.0f,0,1);
-        float rate=s->corner_releasing?CONTROL_CORNER_GAIN_RELEASE_PER_MS:CONTROL_CORNER_GAIN_RISE_PER_MS;
-        s->corner_gain=Approach(s->corner_gain,desired,rate*dt*1000.0f);
+    if((s->mode==CONTROL_TRACK && s->shape_ms &&
+        e*s->shape_dir>=1.0f && e*s->planner_rate>=0) || tight>0) {
+        float desired=tight*CONTROL_CORNER_GAIN_MAX;
+        if(s->shape_ms && e*s->shape_dir>=1.0f && e*s->planner_rate>=0) {
+            float broad=CONTROL_CORNER_GAIN_MAX*Limit(Abs(e)-1.0f,0,1);
+            if(broad>desired) desired=broad;
+        }
+        s->corner_gain=Approach(s->corner_gain,desired,CONTROL_CORNER_GAIN_RISE_PER_MS*dt*1000.0f);
     } else s->corner_gain=0;
     proportional_gain=p->kp;
     if(s->corner_gain>0) proportional_gain*=1.0f+s->corner_gain;
     candidate=p->ki>0?Limit(s->integral+e*dt,-10.0f/p->ki,10.0f/p->ki):0;
-    correction=proportional_gain*e+p->ki*candidate+p->kd*s->derivative;
-    if(Abs(correction)<=steering_limit || correction*e<0) s->integral=candidate;
-    correction=Limit(proportional_gain*e+p->ki*s->integral+p->kd*s->derivative,-steering_limit,steering_limit);
+    correction=proportional_gain*e+p->ki*candidate+s->d_output+branch_bias;
+    candidate_common=Limit(s->speed*(1.0f-CONTROL_TIGHT_COMMON_REDUCTION*tight),0,maximum-Abs(correction));
+    /* Expanded correction bounds may still clip the inner wheel after the
+     * common reduction. Do not integrate into that actuator saturation. */
+    if((correction>=steering_low && correction<=steering_high &&
+        candidate_common+correction>=-reverse_limit && candidate_common+correction<=maximum &&
+        candidate_common-correction>=-reverse_limit && candidate_common-correction<=maximum) ||
+       correction*e<0) s->integral=candidate;
+    correction=Limit(proportional_gain*e+p->ki*s->integral+s->d_output+branch_bias,steering_low,steering_high);
     /* B26: visible line gets its P correction in this frame. D already has a
-     * 15 ms low-pass; a second slew on the whole PD delayed ordinary bends. */
+     * 8 ms low-pass; a second slew on the whole PD delayed ordinary bends. */
     s->last_correction=correction;
-    common=Limit(s->speed,0,maximum-Abs(correction));
-    s->left=(int16_t)(Limit(common+correction,0,maximum)*10.0f);
-    s->right=(int16_t)(Limit(common-correction,0,maximum)*10.0f);
+    common=Limit(s->speed*(1.0f-CONTROL_TIGHT_COMMON_REDUCTION*tight),0,maximum-Abs(correction));
+    s->left=(int16_t)(Limit(common+correction,-reverse_limit,maximum)*10.0f);
+    s->right=(int16_t)(Limit(common-correction,-reverse_limit,maximum)*10.0f);
 }
 /* A split pattern may still supply direction, never a trustworthy centroid.
  * Require three outer-side eyes and at most one opposite-side eye. */
@@ -270,20 +300,31 @@ static int8_t ConfirmSplit(ControlState *s, uint8_t mask, uint32_t dt_ms)
 }
 static void ObserveValidShape(ControlState *s, uint8_t valid, uint8_t mask, uint32_t dt_ms)
 {
-    /* An edge-reaching broad group, not width alone; keep centroid PD authority. */
+    /* Edge-reaching directional group anchored in central eyes. Four or
+     * more consecutive eyes reaching an edge (F0/0F) qualify via SplitDirection;
+     * confirm in 4ms (two nominal frames), never from width alone or mask FF. */
     int8_t side=(valid && (mask&0x18U))?SplitDirection(mask):0;
     if(side && side==s->shape_dir) {
         if(s->shape_ms<CONTROL_SHAPE_CONFIRM_MS) s->shape_ms+=dt_ms;
-    } else { s->shape_dir=side; s->shape_ms=side?dt_ms:0; }
+    } else {
+        /* A narrow same-corner edge may still use its confirmed pending cue.
+         * Follow clears assistance whenever neither visible policy qualifies. */
+        if(side) s->corner_gain=0;
+        s->shape_dir=side; s->shape_ms=side?dt_ms:0;
+    }
     if(side && s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS) {
         s->corner_pending_dir=side; s->corner_pending_ms=CONTROL_CORNER_PENDING_MS;
+        s->drive_corner_dir=side;
         RememberSide(s,side);
     }
 }
 void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, uint8_t valid, uint8_t mask, uint32_t dt_ms)
 {
     float e=error/1000.0f, dt=dt_ms*0.001f, base, maximum;
-    uint8_t recovering;
+    float step=e-s->last_error, observation_dt=dt;
+    /* Ignore tiny centroid jitter when deciding reserve eligibility. A clear
+     * returning step still releases now; live P/D never gets this deadband. */
+    uint8_t recovering, outward=valid && (e>=0?step:-step)>=-CONTROL_TIGHT_RETURN_STEP_PITCH;
     int8_t split_direction;
     if(s->mode==CONTROL_STOPPED || s->mode==CONTROL_FAULT) return;
     if(dt_ms<1U || dt_ms>4U) { Control_Stop(s,FAULT_TIMING); return; }
@@ -296,25 +337,64 @@ void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, ui
     else s->speed_guard_ms=0;
     if(s->guide_age_ms<1000U) s->guide_age_ms+=dt_ms;
     if(s->corner_pending_ms>dt_ms) s->corner_pending_ms-=dt_ms;
-    else { s->corner_pending_ms=0; s->corner_pending_dir=0; }
+    else { s->corner_pending_ms=0; s->corner_pending_dir=0; s->drive_corner_dir=0; }
+    recovering=s->mode==CONTROL_TURN || s->mode==CONTROL_SEARCH || s->mode==CONTROL_ALIGN || s->mode==CONTROL_BRAKE;
+    /* Charge elapsed time once, even if a legacy state has both guards set.
+     * Saturate the budget while visible data is authoritative. */
+    if(recovering || s->post_turn_ms) {
+        if(s->recovery_ms<CONTROL_RECOVERY_MAX_MS) {
+            s->recovery_ms+=dt_ms;
+            if(s->recovery_ms>CONTROL_RECOVERY_MAX_MS) s->recovery_ms=CONTROL_RECOVERY_MAX_MS;
+        }
+    }
     if(s->post_turn_ms) {
-        s->recovery_ms+=dt_ms;
         if(s->post_turn_ms>dt_ms) s->post_turn_ms-=dt_ms;
-        else { s->post_turn_ms=0; s->post_turn_dir=0; s->recovery_ms=0; }
+        else {
+            s->post_turn_ms=0; s->post_turn_dir=0;
+            if(!recovering) s->recovery_ms=0;
+        }
     }
     if(s->last_side_ms>dt_ms) s->last_side_ms-=dt_ms;
     else { s->last_side_ms=0; s->last_side=0; }
     if(s->corner_hint_ms>dt_ms) s->corner_hint_ms-=dt_ms;
     else { s->corner_hint_ms=0; s->corner_dir=0; }
-    recovering=s->mode==CONTROL_TURN || s->mode==CONTROL_SEARCH || s->mode==CONTROL_ALIGN || s->mode==CONTROL_BRAKE;
-    if(recovering) {
-        s->recovery_ms+=dt_ms;
-        if(s->recovery_ms>=CONTROL_RECOVERY_MAX_MS) {
-            LineFault(s,LINE_STOP_TURN_TIMEOUT); return;
-        }
+    /* A newly valid frame gets PD first. A glimpse does not erase the budget:
+     * the next invalid frame still faults unless sustained tracking earned it. */
+    if(!valid && (recovering || s->post_turn_ms) && s->recovery_ms>=CONTROL_RECOVERY_MAX_MS) {
+        LineFault(s,LINE_STOP_TURN_TIMEOUT); return;
     }
     if(valid || mask==0U) { s->split_cue_ms=0; s->split_cue_dir=0; }
     ObserveValidShape(s,valid,mask,dt_ms);
+    /* Completed handoff + visible travel + confirmed opposite branch means
+     * a different corner. Invalid retargets or same-side glimpses cannot renew. */
+    if(!recovering && s->post_turn_ms && valid) {
+        if(s->post_turn_visible_ms<CONTROL_NEW_CORNER_TRACK_MS)
+            s->post_turn_visible_ms+=(uint16_t)dt_ms;
+        if(s->post_turn_visible_ms>=CONTROL_NEW_CORNER_TRACK_MS &&
+           s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS && s->post_turn_dir &&
+           s->shape_dir==-s->post_turn_dir && e*s->shape_dir>=1.0f) {
+            s->post_turn_ms=0; s->post_turn_dir=0; s->post_turn_visible_ms=0;
+            s->recovery_ms=0;
+        }
+    } else s->post_turn_visible_ms=0;
+    /* Continuous inner-line evidence can complete a moderate curve even if
+     * error never reaches the narrow-center handoff. Keep D and side memory. */
+    if((recovering || s->post_turn_ms) && valid && Abs(e)<=2.0f &&
+       (mask&0x3CU) && !(mask&0x81U)) {
+        if(s->recovery_visible_ms<CONTROL_RECOVERY_VISIBLE_MS)
+            s->recovery_visible_ms+=(uint16_t)dt_ms;
+        if(s->recovery_visible_ms>=CONTROL_RECOVERY_VISIBLE_MS) s->recovery_ms=0;
+    } else s->recovery_visible_ms=0;
+    /* Only consecutive narrow central data earns fast handoff. Continue
+     * observing in post-turn TRACK if a shorter legacy align_ms completed first. */
+    if((recovering || s->post_turn_ms) && valid && Abs(e)<=CONTROL_FAST_CENTER_PITCH &&
+       (mask&0x18U) && !(mask&0xE7U) && !s->corner_pending_ms) {
+        if(s->fast_center_ms<CONTROL_FAST_CENTER_MS) s->fast_center_ms+=(uint16_t)dt_ms;
+    } else s->fast_center_ms=0;
+    if(s->fast_center_ms>=CONTROL_FAST_CENTER_MS) s->fast_exit=1;
+    if(!valid || Abs(e)>1.5f || s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS || (!recovering && !s->post_turn_ms)) {
+        s->fast_exit=0;
+    }
     if(recovering || s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS || (valid && Abs(e)>=2.4f))
         s->speed_guard_ms=CONTROL_SPEED_GUARD_MS;
     if(valid) {
@@ -325,7 +405,9 @@ void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, ui
         }
         /* A valid extreme error is not a command to run a timed corner routine. */
         if(recovering) {
-            float rejoin=s->recovery_arc?base:Limit(base,0,CONTROL_RECENTER_PERCENT);
+            uint8_t visible_settled=s->recovery_visible_ms>=CONTROL_RECOVERY_VISIBLE_MS;
+            float rejoin=(s->fast_exit || visible_settled)?base:Limit(base,0,CONTROL_RECENTER_PERCENT);
+            uint8_t centered,settled;
             s->recovery_seen_line=1;
             /* Retain a genuinely new side even if a weak center sample follows
              * it before the next loss. Weak readings must not undo this cue. */
@@ -337,17 +419,21 @@ void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, ui
                  * a low-duty approach must not jump up to the rejoin ceiling. */
                 s->speed=Limit(s->speed,0,rejoin);
             }
-            s->brake_ms=0; /* Visible line immediately cancels a brake pulse as well as a pivot. */
+            s->brake_ms=0; /* Visible line immediately cancels a brake pulse as well as a swing turn. */
             s->mode=CONTROL_ALIGN; /* RECENTER: immediately follow the observed line with forward PD. */
             if(Abs(e)<=1.0f && (mask&0x3CU)) s->reacquire_ms+=dt_ms;
             else s->reacquire_ms=0;
-            if(s->reacquire_ms>=(uint32_t)Limit(p->align_ms,CONTROL_REACQUIRE_MIN_MS,CONTROL_REACQUIRE_MAX_MS)) {
+            /* B36: only a narrow central single line can earn the fast exit.
+             * A glimpse/broad patch cannot. Keep memory and episode budget. */
+            centered=s->reacquire_ms>=(uint32_t)Limit(p->align_ms,CONTROL_REACQUIRE_MIN_MS,CONTROL_REACQUIRE_MAX_MS);
+            settled=centered || s->fast_exit || visible_settled;
+            if(centered && !s->fast_exit && !visible_settled) {
                 s->last_error=e; s->derivative=s->integral=s->planner_rate=0;
             }
-            UpdateDerivative(s,e,dt,dt_ms);
+            UpdateDerivative(s,e,dt);
             s->speed_reason=SPEED_RECOVERY;
-            Follow(s,p,e,rejoin,maximum,dt,0);
-            if(s->reacquire_ms>=(uint32_t)Limit(p->align_ms,CONTROL_REACQUIRE_MIN_MS,CONTROL_REACQUIRE_MAX_MS)) {
+            Follow(s,p,e,rejoin,maximum,dt,0,mask,outward);
+            if(settled) {
                 s->mode=CONTROL_TRACK; s->lost=0; s->lost_ms=0;
                 s->post_turn_ms=CONTROL_POST_TURN_MS;
                 s->post_turn_dir=s->turn_dir;
@@ -361,13 +447,18 @@ void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, ui
         }
         /* Fixed Base: there is no straight bonus to restore after a dash. */
         s->speed_bonus=0; s->cruise_ms=0;
-        if(s->lost || !s->history) { s->last_error=e; s->derivative=s->integral=s->planner_rate=0; }
+        /* Preserve the observed slope across a short nonwhite PROBE dropout.
+         * White GAP/recovery/long loss still reset stale derivative history. */
+        if(!s->history || (s->lost && !(s->mode==CONTROL_PROBE &&
+           s->ambiguous_ms && s->shape_ms && s->lost_ms<=CONTROL_BRANCH_PROBE_KEEP_MS))) {
+            s->last_error=e; s->derivative=s->integral=s->planner_rate=0;
+        } else if(s->lost) observation_dt+=(float)s->lost_ms*0.001f;
         s->lost=0; s->lost_ms=s->ambiguous_ms=0; s->history=1; s->mode=CONTROL_TRACK;
         s->probe_continue=0;
         if(Abs(e)>=1.2f && (mask&0x81U)) {
             s->corner_dir=e>0?1:-1; s->corner_hint_ms=CONTROL_CORNER_MEMORY_MS;
         }
-        UpdateDerivative(s,e,dt,dt_ms);
+        UpdateDerivative(s,e,observation_dt);
         {
             float target=base;
             s->speed_reason=SPEED_BASE;
@@ -375,13 +466,14 @@ void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, ui
                 /* Visible corners keep the same Base target and ordinary PD. */
                 s->speed_reason=SPEED_CORNER;
             }
-            if(s->post_turn_ms && !s->recovery_arc && s->stable_ms<CONTROL_REJOIN_CENTER_MS) {
+            if(s->post_turn_ms && !s->fast_exit && s->recovery_visible_ms<CONTROL_RECOVERY_VISIBLE_MS &&
+               !s->recovery_arc && s->stable_ms<CONTROL_REJOIN_CENTER_MS) {
                 target=Limit(target,0,CONTROL_REJOIN_CAP_PERCENT);
                 s->speed_reason=SPEED_RECOVERY;
             }
             Follow(s,p,e,target,maximum,dt,
                    !s->corner_pending_ms && !s->post_turn_ms && !(mask&0x81U) &&
-                   Abs(e)<=1.5f && Abs(s->planner_rate)<=4.0f);
+                   Abs(e)<=1.5f && Abs(s->planner_rate)<=4.0f,mask,outward);
         }
         RememberGuide(s,e,mask,dt_ms,maximum);
         /* Separate from the long straight-gap guide: this snapshot tolerates
@@ -402,12 +494,8 @@ void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, ui
         return;
     }
     if(!s->history) { LineFault(s,LINE_STOP_NO_HISTORY); return; }
-    if(s->post_turn_ms && s->recovery_ms>=CONTROL_RECOVERY_MAX_MS) {
-        LineFault(s,LINE_STOP_TURN_TIMEOUT); return;
-    }
     s->integral=0;
     s->corner_gain=0;
-    s->corner_inward_ms=s->corner_outward_ms=0; s->corner_releasing=0;
     s->cruise_ms=0; s->speed_bonus=0;
     if(!s->lost) {
         /* Latch once per continuous loss. Center flicker must earn a new
