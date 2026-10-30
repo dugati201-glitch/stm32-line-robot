@@ -67,11 +67,11 @@ void test_entry(void) {
         for(i=0;i<80/dt;++i) Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
         Control_Step(&s,&p,sign*1500,1,sign>0?0x20:0x04,dt);
         CHECK(s.left>=0 && s.right>=0 && !s.corner_gain);
-        /* Same outer reading with no confirmed branch stays ordinary PD. */
+        /* B45 grants current outer-eye authority without a confirmed branch. */
         Warm(&s,&p,55);
         for(i=0;i<20;++i) {
             Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
-            CHECK(!s.corner_gain && s.left>=0 && s.right>=0);
+            CHECK(s.corner_gain>0 && (sign>0?s.right<0:s.left<0));
         }
         /* Startup/low Base and low current Max never inherit signed reserve. */
         Warm(&s,&p,30); Cue(&s,&p,sign,dt);
@@ -101,7 +101,7 @@ void test_entry(void) {
         /* Expired cue or changing side cannot retain the old extra gain. */
         Warm(&s,&p,55); Cue(&s,&p,sign,dt);
         for(i=0;i<220/dt+1;++i) Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
-        CHECK(!s.corner_pending_ms && !s.corner_gain && s.left>=0 && s.right>=0);
+        CHECK(!s.corner_pending_ms && !s.drive_corner_dir && s.corner_gain>0 && (sign>0?s.right<0:s.left<0));
         Warm(&s,&p,55); Cue(&s,&p,sign,dt);
         Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,dt);
         before=s.recovery_ms;
@@ -118,7 +118,7 @@ void test_entry(void) {
     for(sign=-1;sign<=1;sign+=2) {
         Warm(&s,&p,55);
         Control_Step(&s,&p,sign*2500,1,sign>0?0xF8:0x1F,2);
-        CHECK(!s.corner_pending_ms && s.left>=0 && s.right>=0);
+        CHECK(!s.corner_pending_ms && (sign>0?s.right<0:s.left<0));
         Control_Step(&s,&p,sign*2500,1,sign>0?0xF8:0x1F,2);
         CHECK(s.corner_pending_ms && s.corner_pending_dir==sign);
         Control_Step(&s,&p,sign*2500,1,sign>0?0xF8:0x1F,2);
@@ -126,10 +126,10 @@ void test_entry(void) {
         for(i=0;i<5;++i) Control_Step(&s,&p,sign*2500,1,sign>0?0x40:0x02,2);
         CHECK(sign>0?s.right<0:s.left<0);
         Control_Step(&s,&p,-sign*2500,1,sign>0?0x02:0x40,2);
-        CHECK(s.left>=0 && s.right>=0 && !s.corner_gain);
+        CHECK((sign>0?s.left<0:s.right<0) && s.corner_gain>0);
         /* A different broad shape starts its own ramp, not old-side gain. */
         Control_Step(&s,&p,-sign*2500,1,sign>0?0x1F:0xF8,2);
-        CHECK(s.left>=0 && s.right>=0 && s.corner_gain<=0.081f);
+        CHECK(s.left>=-240 && s.right>=-240 && (sign>0?s.left<0:s.right<0) && s.corner_gain<=0.081f);
     }
     /* Max and fractional duty/position reserve bound all signed requests;
      * the faster D filter may release reserve on an inward jitter frame. */

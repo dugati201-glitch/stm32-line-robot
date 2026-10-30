@@ -1,3 +1,7 @@
+> **B45 hiện tại (30/10/2026)**: [Outer-eye grip](outer-grip-b45.md). Khôi phục nền B43; Base55/Max85, PID12/0/0,9; không Cruise. Mắt ngoài được cấp reserve ở TRACK, nhả khi error về tâm; carry/rejoin55, reacquire6ms. Owner báo B43 đạt15,5s, B44 mất16,3s; chưa đo B45. Các mục current cũ bên dưới là lịch sử khi mâu thuẫn.
+
+> **B44 hiện tại (30/10/2026)**: [Chicane và Straight Cruise](chicane-cruise-b44.md). Base50 / Straight62 / Max85, PID14 / 0 / 0,9; trợ lực trong ALIGN, quay64/−22 rồi58/−40 sau20ms trắng. B43 owner đo15,5s; B44 đã test/build, chưa đo lap. Các mục current cũ bên dưới là lịch sử khi mâu thuẫn.
+
 > **B43 swing turn (30/10/2026)**: [B43](swing-turn-b43.md). Base55/Max85, Kp12/Ki0/Kd0.9.
 
 > **B42 active-eye (30/10/2026)**: [B42](active-eye-b42.md). Base55/Max85, Kp12/Ki0/**Kd0.10**.

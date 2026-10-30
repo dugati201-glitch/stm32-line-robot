@@ -174,9 +174,9 @@ void RunMenuTests(void)
     Send(2,0,0); CHECK(currentMenu == MENU_SYSTEM);
     Send(4,0,0); CHECK(currentMenu == MENU_CORNER);
     Send(2,0,0); Send(1,0,0); Send(2,0,0);
-    CHECK(menu_parameters.advance_ms==0 && menu_parameters.align_ms==14);
+    CHECK(menu_parameters.advance_ms==0 && menu_parameters.align_ms==8);
     Send(2,0,0); Send(4,0,0); Send(2,0,0);
-    CHECK(menu_parameters.align_ms==12);
+    CHECK(menu_parameters.align_ms==6);
     Send(0,0,2); CHECK(currentMenu == MENU_MAIN);
     TestRobot_Prepare(); Menu_Init(); Send(2,0,0);
     TestRobot_Emit(0,0); Robot_Stop(FAULT_LINE);

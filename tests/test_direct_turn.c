@@ -74,12 +74,12 @@ void RunDirectTurnTests(void)
         for(i=0;i<3;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
         CHECK(s.mode==CONTROL_TRACK && s.target==55 && !s.brake_count);
         /* B40: three ramp steps plus confirmed broad proportional bias of 12. */
-        CHECK(sign*(s.left-s.right)>685 && sign*(s.left-s.right)<688 && s.left>0 && s.right>0);
+        CHECK(sign*(s.left-s.right)>752 && sign*(s.left-s.right)<755 && s.left>0 && s.right>0);
         CHECK(s.left<=850 && s.right<=850);
         /* Confirming a broad cue never injects a steering floor; returning
          * error remains under ordinary PD control even while the cue persists. */
         Control_Step(&s,&p,sign*1400,1,sign>0?0xF8:0x1F,2);
-        CHECK(sign*s.last_correction<18 && s.mode==CONTROL_TRACK);
+        CHECK(sign*s.last_correction>18.15f && sign*s.last_correction<18.154f && s.mode==CONTROL_TRACK);
         Control_Step(&s,&p,0,1,0x18,2);
         CHECK(s.left>0 && s.right>0 && s.mode==CONTROL_TRACK);
     }

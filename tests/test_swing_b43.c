@@ -28,16 +28,16 @@ void test_entry(void) {
         Control_Step(&s,&p,0,0,0xB8,dt);
         CHECK(s.mode==CONTROL_TURN && s.fault==FAULT_NONE);
         CHECK(s.left==(sign>0?640:-220) && s.right==(sign>0?-220:640));
-        CHECK(s.target==64 && s.speed==48 && s.left+s.right==420);
+        CHECK(s.target==64 && s.speed==55 && s.left+s.right==420);
         CHECK(s.recovery_ms==dt && !s.brake_count && !s.recovery_arc);
         Control_Step(&s,&p,0,0,0,dt);
         CHECK(s.left==(sign>0?680:-300) && s.right==(sign>0?-300:680));
-        CHECK(s.target==68 && s.speed==48 && s.left+s.right==380);
+        CHECK(s.target==68 && s.speed==55 && s.left+s.right==380);
         CHECK(s.recovery_ms==2*dt);
         for(i=0;i<15;++i) Control_Step(&s,&p,0,0,0,dt);
-        CHECK(s.speed==48 && s.recovery_ms==17*dt);
+        CHECK(s.speed==55 && s.recovery_ms==17*dt);
         Control_Step(&s,&p,0,1,0x18,dt);
-        CHECK(s.mode==CONTROL_ALIGN && s.target==52 && s.speed>=48 && s.speed<49);
+        CHECK(s.mode==CONTROL_ALIGN && s.target==55 && s.speed==55);
         CHECK(s.left>0 && s.right>0); /* Valid line cancels swing immediately. */
         /* Duty carry must not boost a low-duty approach on rejoin. */
         Seed(&s,&p,sign,5,85);
@@ -53,18 +53,18 @@ void test_entry(void) {
             Seed(&s,&p,sign,80,maximum);
             Control_Step(&s,&p,0,0,k?0xB8:0,dt);
             CHECK(s.left==l && s.right==r && s.target==outer);
-            CHECK(s.speed<=(maximum<48?maximum:48));
+            CHECK(s.speed<=(maximum<55?maximum:55));
             CHECK(s.left+s.right>=0 && s.left<=(int)maximum*10 && s.right<=(int)maximum*10);
             CHECK(s.left>=-(int)maximum*10 && s.right>=-(int)maximum*10);
         }
     }
     /* Short chicane: continuous valid travel totals8ms including fresh shape. */
     for(sign=-1;sign<=1;sign+=2) {
-        Seed(&s,&p,sign,48,85); s.mode=CONTROL_TRACK; s.post_turn_ms=200;
+        Seed(&s,&p,sign,55,85); s.mode=CONTROL_TRACK; s.post_turn_ms=200;
         s.post_turn_dir=(int8_t)sign; s.recovery_ms=900;
-        for(i=0;i<3;++i) Control_Step(&s,&p,0,1,0x18,1);
-        for(i=0;i<4;++i) Control_Step(&s,&p,-sign*1500,1,sign>0?0x1F:0xF8,1);
-        CHECK(s.post_turn_ms && s.recovery_ms==907);
+        for(i=0;i<8;++i) Control_Step(&s,&p,0,1,0x18,1);
+        for(i=0;i<3;++i) Control_Step(&s,&p,-sign*1500,1,sign>0?0x1F:0xF8,1);
+        CHECK(s.post_turn_ms && s.recovery_ms==911);
         Control_Step(&s,&p,-sign*1500,1,sign>0?0x1F:0xF8,1);
         CHECK(!s.post_turn_ms && !s.recovery_ms && s.corner_pending_dir==-sign);
         Control_Step(&s,&p,0,0,0,1);
@@ -72,9 +72,10 @@ void test_entry(void) {
     }
     /* Post-turn center clear is exactly40ms, while mere glimpses cannot renew timeout. */
     Seed(&s,&p,1,48,85); s.mode=CONTROL_TRACK; s.post_turn_ms=200; s.post_turn_dir=1; s.recovery_ms=100;
-    for(i=0;i<39;++i) Control_Step(&s,&p,0,1,0x18,1);
-    CHECK(s.post_turn_ms && s.recovery_ms==139);
-    Control_Step(&s,&p,0,1,0x18,1); CHECK(!s.post_turn_ms && !s.recovery_ms);
+    for(i=0;i<15;++i) Control_Step(&s,&p,0,1,0x18,1);
+    CHECK(s.post_turn_ms && s.recovery_ms==115);
+    Control_Step(&s,&p,0,1,0x18,1); CHECK(s.post_turn_ms && !s.recovery_ms);
+    for(i=0;i<24;++i) Control_Step(&s,&p,0,1,0x18,1); CHECK(!s.post_turn_ms && !s.recovery_ms);
     Seed(&s,&p,1,55,85); s.recovery_ms=1198;
     Control_Step(&s,&p,1500,1,0x20,2); CHECK(s.mode==CONTROL_ALIGN && s.fault==FAULT_NONE);
     Control_Step(&s,&p,0,0,0,2); CHECK(s.mode==CONTROL_FAULT && s.line_stop_reason==LINE_STOP_TURN_TIMEOUT);

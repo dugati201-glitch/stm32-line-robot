@@ -31,10 +31,11 @@ void test_entry(void) {
             B40_Control_Step(&old,&q,sign*errors[i],1,sign>0?0xF8:0x1F,2);
             CHECK(s.mode==CONTROL_TRACK && s.left+s.right>0 && !s.brake_count);
             CHECK(s.left>=-240 && s.right>=-240 && s.left<=850 && s.right<=850);
-            if(i>=1) {
+            if(i>=1 && i<5) {
                 CHECK(sign>0?s.right<0:s.left<0);
                 CHECK(s.left+s.right<old.left+old.right);
             }
+            if(i==5) CHECK(s.left>=0 && s.right>=0 && !s.corner_gain);
             if(sign>0) {
                 b41_trace[i][0]=32540+2*i; b41_trace[i][1]=errors[i];
                 b41_trace[i][2]=old.left; b41_trace[i][3]=old.right;
@@ -79,7 +80,7 @@ void test_entry(void) {
         Control_Step(&s,&p,0,0,0,dt);
         CHECK(s.mode==CONTROL_TURN && s.turn_dir==sign && !s.recovery_arc);
         Control_Step(&s,&p,0,1,0x18,dt);
-        CHECK(s.mode==CONTROL_ALIGN && s.target==52 && s.speed>=48 && s.speed<=49);
+        CHECK(s.mode==CONTROL_ALIGN && s.target==55 && s.speed==55);
         Control_Stop(&s,FAULT_UI); Control_Step(&s,&p,0,1,0x18,dt);
         CHECK(s.mode==CONTROL_FAULT && !s.left && !s.right);
     }

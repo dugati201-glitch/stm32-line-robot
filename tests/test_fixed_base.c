@@ -153,7 +153,7 @@ void RunFixedBaseTests(void)
             CHECK(s.target==55 && s.mode==CONTROL_TRACK);
             Control_Step(&s,&p,sign*3500,1,sign>0?0x80:0x01,2);
             CHECK(s.target==55 && s.mode==CONTROL_TRACK && !s.brake_count);
-            CHECK(s.left>=0 && s.right>=0 && s.left<=850 && s.right<=850);
+            CHECK(s.left>=-240 && s.right>=-240 && s.left<=850 && s.right<=850 && s.left+s.right>0);
         }
     }
 
@@ -168,8 +168,8 @@ void RunFixedBaseTests(void)
             float before=Abs(s.last_correction);
             Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
             CHECK(s.mode==CONTROL_TRACK && s.target==55);
-            CHECK(sign*s.last_correction>=18.0f && sign*s.last_correction<=42.601f);
-            CHECK(Abs(s.last_correction)<=before+(i<2?7.441f:1.441f) && s.left>=-280 && s.right>=-280 && s.left+s.right>0);
+            CHECK(sign*s.last_correction>=18.0f && sign*s.last_correction<=47.191f);
+            CHECK(Abs(s.last_correction)<=before+(i<2?10.357f:1.657f) && s.left>=-280 && s.right>=-280 && s.left+s.right>0);
         }
         CHECK(s.corner_pending_ms && s.corner_pending_dir==sign);
     }
@@ -219,9 +219,9 @@ void RunFixedBaseTests(void)
      * explicit fault latching. A fresh start is still an operator action. */
     EnterTurn(&s,&p,1);
     for(i=0;i<6;++i) Control_Step(&s,&p,0,1,0x18,2);
-    CHECK(s.mode==CONTROL_TRACK && s.post_turn_ms && !s.recovery_arc && s.speed>48 && s.speed<=51);
+    CHECK(s.mode==CONTROL_TRACK && s.post_turn_ms && !s.recovery_arc && s.speed==55);
     Control_Step(&s,&p,0,1,0x18,2);
-    CHECK(s.target==55 && s.speed>48 && s.speed<=51.5f);
+    CHECK(s.target==55 && s.speed==55);
     Control_Stop(&s,FAULT_ADC);
     for(i=0;i<10;++i) Control_Step(&s,&p,0,1,0x18,2);
     CHECK(s.mode==CONTROL_FAULT && !s.left && !s.right);

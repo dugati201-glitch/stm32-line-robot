@@ -65,7 +65,7 @@ static void CheckEntryAndSteering(void)
         CHECK(s.mode==CONTROL_TRACK && !s.brake_count && s.left>0 && s.right>0);
         Control_Step(&s,&p,0,0,0x24,2);
         Control_Step(&s,&p,sign*500,1,sign>0?0x10:0x08,2);
-        CHECK(Abs(s.last_correction-sign*6.0f)<0.001f);
+        CHECK(Abs(s.last_correction-sign*6.3f)<0.001f);
         s=seed;
         Control_Step(&s,&p,sign*500,1,sign>0?0x10:0x08,2);
         CHECK(Abs(s.last_correction)>6.0f && Abs(s.last_correction)<12.01f && s.left>0 && s.right>0);
@@ -84,7 +84,7 @@ static void CheckEntryAndSteering(void)
     /* Direct high-duty recovery still yields immediately to valid line. */
     FastLoss(&s,&p,1);
     Control_Step(&s,&p,0,1,0x18,2);
-    CHECK(s.mode==CONTROL_ALIGN && !s.recovery_arc && s.left>0 && s.right>0 && s.target==52 && !s.brake_ms);
+    CHECK(s.mode==CONTROL_ALIGN && !s.recovery_arc && s.left>0 && s.right>0 && s.target==55 && !s.brake_ms);
     for(i=0;i<5;++i) Control_Step(&s,&p,0,1,0x18,2);
     CHECK(s.mode==CONTROL_TRACK && s.post_turn_ms);
     for(i=0;i<29;++i) {
@@ -121,9 +121,9 @@ void RunSpeedTests(void)
     p.straight_percent=60;
     Control_Step(&s,&p,1900,1,0x60,2);
     CHECK(s.target==55 && s.speed_reason==SPEED_BASE);
-    CHECK(s.mode==CONTROL_TRACK && s.left>=0 && s.right>=0 && s.left+s.right>0 && !s.brake_count);
+    CHECK(s.mode==CONTROL_TRACK && s.left>=-240 && s.right>=-240 && s.left+s.right>0 && !s.brake_count);
     CHECK(!s.curve_valid); /* Outward drift must not earn the curve bridge. */
-    for(i=0;i<300;++i) Control_Step(&s,&p,1900,1,0x60,2);
+    for(i=0;i<300;++i) Control_Step(&s,&p,1200,1,0x30,2);
     CHECK(s.target==55 && s.speed==55 && s.mode==CONTROL_TRACK && !s.brake_count);
     /* Moderate stable curve -> fragmented center: retain exact steering briefly,
      * but never turn an 8 ms bridge into an unbounded straight-gap allowance. */
@@ -134,11 +134,11 @@ void RunSpeedTests(void)
             Control_Step(&s,&p,0,0,0x24,2);
             CHECK(s.mode==CONTROL_PROBE && s.left==left && s.right==right && !s.brake_count);
         }
-        Control_Step(&s,&p,1900,1,0x60,2);
+        Control_Step(&s,&p,1200,1,0x30,2);
         CHECK(s.mode==CONTROL_TRACK && s.left==left && s.right==right && s.derivative==0);
         for(i=0;i<5;++i) Control_Step(&s,&p,0,0,0x24,2);
         CHECK(s.mode==CONTROL_PROBE && s.target==15 && s.left<left && s.lost_ms==10);
-        Control_Step(&s,&p,1900,1,0x60,2);
+        Control_Step(&s,&p,1200,1,0x30,2);
         left=s.left; right=s.right;
         for(i=0;i<2;++i) {
             Control_Step(&s,&p,0,0,0,2);
@@ -174,13 +174,13 @@ void RunSpeedTests(void)
         for(i=0;i<85;++i) Control_Step(&s,&p,0,0,0,2);
         CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0));
         Control_Step(&s,&p,0,1,0x18,2);
-        CHECK(s.mode==CONTROL_ALIGN && s.left==483 && s.right==483 && !s.brake_ms);
+        CHECK(s.mode==CONTROL_ALIGN && s.left==550 && s.right==550 && !s.brake_ms);
         for(i=0;i<5;++i) Control_Step(&s,&p,0,1,0x18,2);
         CHECK(s.mode==CONTROL_TRACK && s.post_turn_ms && s.speed_guard_ms && s.recovery_ms<1200);
         {
             float before=s.speed;
             Control_Step(&s,&p,0,1,0x18,2);
-            CHECK(s.speed>before+0.479f && s.speed<=before+0.481f && s.speed<=p.base_percent && !s.curve_valid);
+            CHECK(s.speed==before && s.speed==p.base_percent && !s.curve_valid);
         }
     }
     Profile55(&p); p.base_percent=45; p.straight_percent=55; p.max_percent=75; Control_Start(&s);
@@ -263,9 +263,9 @@ void RunSpeedTests(void)
             Control_Step(&s,&p,0,0,0,2);
             CHECK(s.mode==CONTROL_TURN && !s.brake_count && sign*(s.left-s.right)>0);
         }
-        CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0) && s.speed==48);
+        CHECK(s.left==SWING_LEFT(sign,p.max_percent,0) && s.right==SWING_RIGHT(sign,p.max_percent,0) && s.speed==55);
         Control_Step(&s,&p,0,1,0x18,2);
-        CHECK(s.mode==CONTROL_ALIGN && s.left==483 && s.right==483);
+        CHECK(s.mode==CONTROL_ALIGN && s.left==550 && s.right==550);
         FastLoss(&s,&p,sign);
         Control_Step(&s,&p,sign*1500,1,sign>0?0x40:0x02,2);
         CHECK(s.mode==CONTROL_ALIGN && !s.brake_ms && s.left>=0 && s.right>=0);
@@ -286,7 +286,7 @@ void RunSpeedTests(void)
         Control_Step(&mirror,&p,-e,1,0x02,2);
         CHECK(s.left==mirror.right && s.right==mirror.left);
         CHECK(Abs(s.speed-mirror.speed)<0.001f);
-        CHECK(s.left>=0 && s.right>=0 && s.left<=750 && s.right<=750);
+        CHECK(s.left>=-240 && s.right>=-240 && s.left<=750 && s.right<=750 && s.left+s.right>0);
     }
     FastLoss(&s,&p,1); Control_Stop(&s,FAULT_UI);
     Control_Step(&s,&p,0,1,0x18,2);

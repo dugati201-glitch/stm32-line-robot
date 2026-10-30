@@ -26,14 +26,14 @@ void test_entry(void)
         Warm(&s,&p); p.kd=0; s.last_error=sign*1.5f;
         for(i=0;i<16;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
         /* Stronger visible-corner P, not a stronger pivot after losing line. */
-        CHECK(sign*s.last_correction>42.59f && sign*s.last_correction<42.61f);
+        CHECK(sign*s.last_correction>47.189f && sign*s.last_correction<47.191f);
         CHECK(s.mode==CONTROL_TRACK && s.target==45 && s.left>=-280 && s.right>=-280 && s.left+s.right>0);
         CHECK(s.left+s.right<=900 && !s.brake_count);
         Control_Step(&s,&p,sign*1000,1,0x18,2);
-        CHECK(s.corner_gain==0 && Abs(s.last_correction-sign*12)<0.001f);
+        CHECK(s.corner_gain==0 && Abs(s.last_correction-sign*13.2f)<0.001f);
         Warm(&s,&p); p.kd=0;
         for(i=0;i<20;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0x30:0x0C,2);
-        CHECK(s.corner_gain==0 && Abs(s.last_correction-sign*18)<0.001f);
+        CHECK(s.corner_gain==0 && Abs(s.last_correction-sign*20.7f)<0.001f);
     }
     for(dt=1;dt<=4;++dt) for(sign=-1;sign<=1;sign+=2) {
         unsigned elapsed=0,budget;

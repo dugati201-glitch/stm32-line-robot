@@ -1,3 +1,19 @@
+## ADR-055 — B45 khôi phục B43 và cấp grip theo mắt ngoài hiện tại
+
+Sau phản hồi B44 16,3s/B43 15,5s, restore B43 trước mọi sửa B45. Giữ defaults55/85,12/0/0,9, một cặp recovery cho nonwhite64/−22 và white68/−30, không tight/branch/gain trong ALIGN, không Cruise.
+
+TRACK có thể cấp reserve trực tiếp từ current outer eye theo dấu error ở≥1,65 pitch và raw step/filtered D không inward. Không cần mượn confirmed heading cũ. Outer-only common reduction0,20, broad0,35; nhả reserve/branch/corner gain ngay khi returning; giữ D history và giới hạn/antiwindup. Position Kp boost liên tục0→35%; carry/rejoin55, defaultalign6ms/inner evidence16ms.
+
+Giữ cùng/ngược chiều corner reset sau8ms narrow valid riêng rồi4ms shape; giữ deadline, explicit Start, GAP và driver guard. Hardware/Flash không đổi. Backup, test comparator và validation: [B45](outer-grip-b45.md). Chưa có kết quả lap B45; các quyết định current cũ dưới đây là lịch sử khi mâu thuẫn.
+
+## ADR-054 — B44 ưu tiên chicane và Cruise có điều kiện trên Base50
+
+Theo authorization owner sau kết quả B43 thực tế15,5s, cho phép corner assistance trong ALIGN, giảm defaultreacquire8ms/inner evidence20ms. New-corner budget reset chấp nhận cả cùng/ngược chiều, cần8ms narrow valid riêng trước shape4ms; deadline recovery vẫn bounded.
+
+Recovery dùng64/−22 trong entry20ms/nonwhite,58/−40 khi trắng lâu hơn; cập nhật lost_ms trong recovery để policy thực sự chuyển giai đoạn. Default50/62/85, PID14/0/0,9; Straight Cruise chỉ từ TRACK đủ stable80ms và current center/error≤0,65, không pending/post/guard. Exit về Base dùng ramp800; không thêm brake dwell. Menu giữ Straight riêng, vẫn5rows.
+
+Backup B43 trước sửa; test command/state không chứng minh bán kính hoặc lap nhanh hơn. Tài liệu và validation: [B44](chicane-cruise-b44.md). Các quyết định cũ bên dưới là lịch sử khi mâu thuẫn.
+
 # Các quyết định kiến trúc (ADR)
 
 Hiện tại: **B39**, xem [yaw-reserve-b39.md](yaw-reserve-b39.md) và ADR-050.

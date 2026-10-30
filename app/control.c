@@ -189,6 +189,9 @@ static void Follow(ControlState *s, const ControlParameters *p, float e, float t
 {
     float steering_limit, steering_low, steering_high, candidate, correction, common, candidate_common, proportional_gain;
     float tight=0, reverse_limit=0, branch_bias=0;
+    float common_reduction=CONTROL_TIGHT_COMMON_REDUCTION;
+    int8_t reserve_dir=0;
+    uint8_t outer_grip;
     float accel=CONTROL_ACCEL_PERCENT_PER_SECOND;
     /* Startup/rejoin ramp only; ordinary tracking has one fixed Base target.
      * The mixer can lower common duty to preserve steering within Max. */
@@ -205,19 +208,23 @@ static void Follow(ControlState *s, const ControlParameters *p, float e, float t
     s->target=target;
     s->speed=Approach(s->speed,target,(target>s->speed?accel:decel)*dt);
     steering_limit=Limit(s->speed,0,maximum*0.5f);
-    /* B41: confirmed direction plus current broad/outer evidence grants
-     * authority at 1.15..1.65 pitches. Return and ALIGN still release it. */
-    if(s->mode==CONTROL_TRACK && s->corner_pending_ms && s->drive_corner_dir &&
-       s->drive_corner_dir==s->corner_pending_dir &&
-       e*s->corner_pending_dir>CONTROL_TIGHT_START_PITCH && outward &&
-       s->corner_pending_dir*s->derivative>=-CONTROL_TIGHT_INWARD_RATE_PITCH_PER_SECOND &&
-       ((s->corner_pending_dir>0?(mask&0xC0U):(mask&0x03U)) ||
-        s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS)) {
+    /* B45: raw step and filtered rate must both still point outward.
+     * Outer eyes may grant authority without a prior broad-shape latch. */
+    outer_grip=outward && Abs(e)>=CONTROL_TIGHT_FULL_PITCH && e*s->derivative>=0 &&
+        ((e>0 && (mask&0xC0U)) || (e<0 && (mask&0x03U)));
+    if(s->mode==CONTROL_TRACK && outward && e*s->derivative>=0 &&
+       (outer_grip || (s->corner_pending_ms && s->drive_corner_dir &&
+        s->drive_corner_dir==s->corner_pending_dir &&
+        e*s->corner_pending_dir>CONTROL_TIGHT_START_PITCH &&
+        ((s->corner_pending_dir>0?(mask&0xC0U):(mask&0x03U)) ||
+         s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS)))) {
         tight=Limit((Limit(s->speed,0,target)-CONTROL_TIGHT_DUTY_START_PERCENT)/
                     (CONTROL_TIGHT_DUTY_FULL_PERCENT-CONTROL_TIGHT_DUTY_START_PERCENT),0,1)*
               Limit((Abs(e)-CONTROL_TIGHT_START_PITCH)/
                     (CONTROL_TIGHT_FULL_PITCH-CONTROL_TIGHT_START_PITCH),0,1);
         reverse_limit=Limit(CONTROL_TIGHT_REVERSE_PERCENT,0,maximum*0.5f)*tight;
+        reserve_dir=e>0?1:-1;
+        if(outer_grip && !s->shape_ms) common_reduction=CONTROL_OUTER_COMMON_REDUCTION;
     }
     /* B41: ramp branch bias from 2ms of visible directional shape, reaching
      * full bias at 4ms confirmation. This does not latch a new search side. */
@@ -231,9 +238,9 @@ static void Follow(ControlState *s, const ControlParameters *p, float e, float t
             Limit(CONTROL_BRANCH_AIM_PITCH-Abs(e),0,CONTROL_BRANCH_AIM_PITCH-1.0f);
     }
     /* Preserve ordinary counter-steering bounds. Only the observed turn side
-     * gets extra authority; full reserve allows up to 28% inner reverse at Max85. */
-    steering_low=-steering_limit-(s->corner_pending_dir<0?reverse_limit:0);
-    steering_high=steering_limit+(s->corner_pending_dir>0?reverse_limit:0);
+     * gets extra authority; full reserve allows up to 24% inner reverse at Max85. */
+    steering_low=-steering_limit-(reserve_dir<0?reverse_limit:0);
+    steering_high=steering_limit+(reserve_dir>0?reverse_limit:0);
     {
         float demand=p->kd*s->derivative;
         if(p->kd>=CONTROL_CORNER_D_MIN_KD &&
@@ -252,7 +259,7 @@ static void Follow(ControlState *s, const ControlParameters *p, float e, float t
     /* Start steering harder on the first directional visible shape, without B24's
      * abrupt correction floor. A cue is heuristic, not proof of a 90deg turn.
      * Ordinary soft curves, improving error and RECENTER keep ordinary PD. */
-    if((s->mode==CONTROL_TRACK && s->shape_ms &&
+    if((s->mode==CONTROL_TRACK && outward && e*s->derivative>=0 && s->shape_ms &&
         e*s->shape_dir>=1.0f && e*s->planner_rate>=0) || tight>0) {
         float desired=tight*CONTROL_CORNER_GAIN_MAX;
         if(s->shape_ms && e*s->shape_dir>=1.0f && e*s->planner_rate>=0) {
@@ -261,11 +268,11 @@ static void Follow(ControlState *s, const ControlParameters *p, float e, float t
         }
         s->corner_gain=Approach(s->corner_gain,desired,CONTROL_CORNER_GAIN_RISE_PER_MS*dt*1000.0f);
     } else s->corner_gain=0;
-    proportional_gain=p->kp;
+    proportional_gain=p->kp*(1.0f+CONTROL_POSITION_KP_BOOST*Limit(Abs(e)/3.5f,0,1));
     if(s->corner_gain>0) proportional_gain*=1.0f+s->corner_gain;
     candidate=p->ki>0?Limit(s->integral+e*dt,-10.0f/p->ki,10.0f/p->ki):0;
     correction=proportional_gain*e+p->ki*candidate+s->d_output+branch_bias;
-    candidate_common=Limit(s->speed*(1.0f-CONTROL_TIGHT_COMMON_REDUCTION*tight),0,maximum-Abs(correction));
+    candidate_common=Limit(s->speed*(1.0f-common_reduction*tight),0,maximum-Abs(correction));
     /* Expanded correction bounds may still clip the inner wheel after the
      * common reduction. Do not integrate into that actuator saturation. */
     if((correction>=steering_low && correction<=steering_high &&
@@ -274,9 +281,9 @@ static void Follow(ControlState *s, const ControlParameters *p, float e, float t
        correction*e<0) s->integral=candidate;
     correction=Limit(proportional_gain*e+p->ki*s->integral+s->d_output+branch_bias,steering_low,steering_high);
     /* B26: visible line gets its P correction in this frame. D already has a
-     * 8 ms low-pass; a second slew on the whole PD delayed ordinary bends. */
+     * 10 ms low-pass; a second slew on the whole PD delayed ordinary bends. */
     s->last_correction=correction;
-    common=Limit(s->speed*(1.0f-CONTROL_TIGHT_COMMON_REDUCTION*tight),0,maximum-Abs(correction));
+    common=Limit(s->speed*(1.0f-common_reduction*tight),0,maximum-Abs(correction));
     s->left=(int16_t)(Limit(common+correction,-reverse_limit,maximum)*10.0f);
     s->right=(int16_t)(Limit(common-correction,-reverse_limit,maximum)*10.0f);
 }
@@ -317,6 +324,14 @@ static void ObserveValidShape(ControlState *s, uint8_t valid, uint8_t mask, uint
         s->drive_corner_dir=side;
         RememberSide(s,side);
     }
+}
+/* Valid connected group, at most three eyes, away from the two extremes. */
+static uint8_t NarrowTravel(uint8_t mask)
+{
+    uint8_t count=0, bits=mask;
+    if(!mask || (mask&0x81U)) return 0;
+    while(bits) { count+=(bits&1U); bits>>=1; }
+    return count<=3U;
 }
 void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, uint8_t valid, uint8_t mask, uint32_t dt_ms)
 {
@@ -365,14 +380,16 @@ void Control_Step(ControlState *s, const ControlParameters *p, int16_t error, ui
     }
     if(valid || mask==0U) { s->split_cue_ms=0; s->split_cue_dir=0; }
     ObserveValidShape(s,valid,mask,dt_ms);
-    /* Completed handoff + visible travel + confirmed opposite branch means
-     * a different corner. Invalid retargets or same-side glimpses cannot renew. */
+    /* Distinct narrow travel must precede a confirmed new corner of either sign.
+     * Latch the earned segment through shape confirmation, never through loss. */
     if(!recovering && s->post_turn_ms && valid) {
-        if(s->post_turn_visible_ms<CONTROL_NEW_CORNER_TRACK_MS)
-            s->post_turn_visible_ms+=(uint16_t)dt_ms;
+        if(NarrowTravel(mask)) {
+            if(s->post_turn_visible_ms<CONTROL_NEW_CORNER_TRACK_MS)
+                s->post_turn_visible_ms+=(uint16_t)dt_ms;
+        } else if(s->post_turn_visible_ms<CONTROL_NEW_CORNER_TRACK_MS)
+            s->post_turn_visible_ms=0;
         if(s->post_turn_visible_ms>=CONTROL_NEW_CORNER_TRACK_MS &&
-           s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS && s->post_turn_dir &&
-           s->shape_dir==-s->post_turn_dir && e*s->shape_dir>=1.0f) {
+           s->shape_ms>=CONTROL_SHAPE_CONFIRM_MS && e*s->shape_dir>=1.0f) {
             s->post_turn_ms=0; s->post_turn_dir=0; s->post_turn_visible_ms=0;
             s->recovery_ms=0;
         }

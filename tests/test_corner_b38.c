@@ -45,7 +45,7 @@ void test_entry(void) {
     }
     /* Brief glimpses/edge-only data never make an endless recovery legal. */
     Seed(&s,&p,1);
-    for(i=0;i<750;++i) Control_Step(&s,&p,1500,(i%10)<9,(i%10)<9?0x20:0,2);
+    for(i=0;i<750;++i) Control_Step(&s,&p,1500,(i%8)<7,(i%8)<7?0x20:0,2);
     CHECK(s.mode==CONTROL_FAULT && s.line_stop_reason==LINE_STOP_TURN_TIMEOUT);
     Seed(&s,&p,-1);
     for(i=0;i<650;++i) Control_Step(&s,&p,-3500,1,0x01,2);
@@ -57,7 +57,7 @@ void test_entry(void) {
         Control_Defaults(&p); p.kd=0; Control_Start(&s);
         s.history=1; s.speed=55; s.last_error=sign*1.5f;
         Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
-        CHECK(sign*s.last_correction>25.43f && sign*s.last_correction<25.45f);
+        CHECK(sign*s.last_correction>28.355f && sign*s.last_correction<28.357f);
         CHECK(s.mode==CONTROL_TRACK && !s.corner_pending_ms && s.left>0 && s.right>0);
         CHECK(!s.brake_count && s.target==55);
         Control_Step(&s,&p,-sign*1500,1,sign>0?0x1F:0xF8,2);
@@ -73,18 +73,18 @@ void test_entry(void) {
         do {
             Control_Step(&s,&p,sign*1500,1,sign>0?0x20:0x04,dt); elapsed+=dt;
             CHECK(s.mode!=CONTROL_FAULT && s.left>0 && s.right>0);
-            if(elapsed<40) CHECK(s.recovery_ms==1200 && s.target==52);
-        } while(elapsed<40);
+            if(elapsed<CONTROL_RECOVERY_VISIBLE_MS) CHECK(s.recovery_ms==1200 && s.target==55);
+        } while(elapsed<CONTROL_RECOVERY_VISIBLE_MS);
         CHECK(s.mode==CONTROL_TRACK && s.target==55 && !s.recovery_ms);
         Control_Step(&s,&p,0,0,0,dt);
         CHECK(s.mode!=CONTROL_FAULT && s.recovery_ms==dt);
         /* Evidence at 39ms or less followed by invalid cannot release budget. */
         Seed(&s,&p,sign); s.recovery_ms=1200-dt;
-        for(i=0;i<39/dt;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0x20:0x04,dt);
+        for(i=0;i<(CONTROL_RECOVERY_VISIBLE_MS-1)/dt;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0x20:0x04,dt);
         Control_Step(&s,&p,0,0,0,dt);
         CHECK(s.mode==CONTROL_FAULT && s.line_stop_reason==LINE_STOP_TURN_TIMEOUT);
         Seed(&s,&p,sign);
-        for(i=0;i<40/dt+1;++i)
+        for(i=0;i<CONTROL_RECOVERY_VISIBLE_MS/dt+1;++i)
             Control_Step(&s,&p,sign*(1500+(int)i*10),1,sign>0?0x20:0x04,dt);
         CHECK(s.mode==CONTROL_TRACK && sign*s.derivative>0 && s.d_output*sign>0);
         /* New opposite corner earns a separate budget only after completed
@@ -116,13 +116,14 @@ void test_entry(void) {
                     j==3?(direction>0?0xE8:0x17):(direction>0?0xF8:0x1F),dt);
                 elapsed+=dt;
             }
-            CHECK(s.recovery_ms==900+elapsed && s.mode!=CONTROL_FAULT);
+            if(j==0) CHECK(!s.recovery_ms && !s.post_turn_ms);
+            else CHECK(s.recovery_ms==900+elapsed && s.mode!=CONTROL_FAULT);
         }
         /* One invalid frame breaks the visible-travel qualification. */
         Seed(&s,&p,sign); s.mode=CONTROL_TRACK;
         s.post_turn_ms=200; s.post_turn_dir=(int8_t)sign; s.recovery_ms=900;
         elapsed=0;
-        for(i=0;i<20/dt;++i) { Control_Step(&s,&p,0,1,0x18,dt); elapsed+=dt; }
+        for(i=0;i<(CONTROL_NEW_CORNER_TRACK_MS+dt-1)/dt;++i) { Control_Step(&s,&p,0,1,0x18,dt); elapsed+=dt; }
         Control_Step(&s,&p,0,0,0,dt); elapsed+=dt;
         for(i=0;i<(CONTROL_SHAPE_CONFIRM_MS+dt-1)/dt;++i) {
             Control_Step(&s,&p,-sign*1500,1,sign>0?0x1F:0xF8,dt); elapsed+=dt;

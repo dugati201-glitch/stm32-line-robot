@@ -30,11 +30,11 @@ void RunCornerFlowTests(void)
     for(sign=-1;sign<=1;sign+=2) {
         Warm(&s,&p);
         Control_Step(&s,&p,sign*500,1,sign>0?0x10:0x08,2);
-        CHECK(Abs(s.last_correction-sign*6.0f)<0.001f);
-        CHECK(s.left==(sign>0?510:390) && s.right==(sign>0?390:510));
+        CHECK(Abs(s.last_correction-sign*6.3f)<0.001f);
+        CHECK(Abs(s.left-(sign>0?513:387))<=1 && Abs(s.right-(sign>0?387:513))<=1);
         CHECK(s.mode==CONTROL_TRACK && s.target==45 && !s.brake_count);
         Control_Step(&s,&p,-sign*500,1,sign>0?0x08:0x10,2);
-        CHECK(Abs(s.last_correction+sign*6.0f)<0.001f);
+        CHECK(Abs(s.last_correction+sign*6.3f)<0.001f);
     }
     TestLegacyDefaults(&p);
     CHECK(p.base_percent==45 && p.straight_percent==45 && p.max_percent==85);

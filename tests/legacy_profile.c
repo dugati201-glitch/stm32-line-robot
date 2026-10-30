@@ -3,5 +3,5 @@ void TestLegacyDefaults(ControlParameters *p)
 {
     Control_Defaults(p);
     p->base_percent=p->straight_percent=45;
-    p->kd=0.12f;
+    p->kd=0.12f; p->align_ms=12;
 }

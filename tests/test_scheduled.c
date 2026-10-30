@@ -30,24 +30,24 @@ void RunScheduledTests(void)
         for(i=0;i<2;++i) {
             Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
             /* B41 ramps bias from 2ms and confirms direction at 4ms. */
-            CHECK(Abs(s.last_correction-sign*(18.0f+1.44f*(i+1)+6.0f*(i+1)))<0.001f);
+            CHECK(Abs(s.last_correction-sign*(20.7f+1.656f*(i+1)+6.0f*(i+1)))<0.001f);
             CHECK((s.corner_pending_ms!=0)==(i==1));
         }
         Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
         /* A visible confirmed corner must get extra steering before any loss.
          * This fails on B27 even though both versions already have loss arcs. */
-        CHECK(sign*s.last_correction>34.31f && sign*s.last_correction<34.33f);
+        CHECK(sign*s.last_correction>37.667f && sign*s.last_correction<37.669f);
         CHECK(s.mode==CONTROL_TRACK && s.target==45 && s.left>=-280 && s.right>=-280 && s.left+s.right>0 && !s.brake_count);
         for(i=0;i<10;++i) {
             float before=Abs(s.last_correction);
             Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,2);
-            CHECK(Abs(s.last_correction)<=before+1.441f);
+            CHECK(Abs(s.last_correction)<=before+1.657f);
             CHECK(s.corner_gain<=0.701f && s.mode==CONTROL_TRACK);
         }
-        CHECK(Abs(s.last_correction-sign*42.6f)<0.001f);
+        CHECK(Abs(s.last_correction-sign*47.19f)<0.001f);
         /* Improving error immediately releases assistance, leaving live PD. */
         Control_Step(&s,&p,sign*1400,1,sign>0?0xF8:0x1F,2);
-        CHECK(s.corner_gain==0 && Abs(s.last_correction-sign*16.8f)<0.001f);
+        CHECK(s.corner_gain==0 && Abs(s.last_correction-sign*19.152f)<0.001f);
         /* Opposite corner starts a fresh ramp, not the old gain. Direction
          * memory still needs confirmation; P never waits for that latch. */
         Control_Step(&s,&p,-sign*1500,1,sign>0?0x1F:0xF8,2);
@@ -62,7 +62,7 @@ void RunScheduledTests(void)
     for(j=0;j<3;++j) {
         Warm(&s,&p);
         for(i=0;i<20;++i) Control_Step(&s,&p,j==2?3500:1500,1,j==0?0x30:j==1?0x3C:0x80,2);
-        CHECK(!s.corner_gain && s.mode==CONTROL_TRACK && s.target==45);
+        CHECK((j==2?s.corner_gain>0:!s.corner_gain) && s.mode==CONTROL_TRACK && s.target==45);
     }
     for(dt=1;dt<=4;++dt) for(sign=-1;sign<=1;sign+=2) {
         Warm(&s,&p); p.ki=2; p.kp=100;

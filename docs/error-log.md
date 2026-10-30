@@ -1,3 +1,23 @@
+## ERR-075 — B44 giảm thời gian tiến trong cua, owner đo chậm hơn B43
+
+- Owner báo B44 16,3s so với B43 15,5s, cua chậm hơn. Source B44 cho phép tight trong ALIGN và search58/−40 có mean9%, trong khi B43 white68/−30 có mean19% tại Max85. Đây là cơ chế command có thể góp phần; chưa có telemetry tách riêng nguyên nhân cơ học.
+- Theo yêu cầu B45, backup B44 rồi restore195 source/project/test paths B43 trước sửa. Bỏ Cruise, bỏ ALIGN tight/branch/gain, bỏ hai pha recovery của B44; giữ64/−22 và68/−30.
+- B43 current outer-only không có pending/drive cue nên không được reverse reserve. B45 thêm current outerC0/03 + error≥1,65 + nonreturning raw/filtered direction; bound mở theo dấu error, common reduction0,20 khi chưa có shape, broad0,35.
+- Return allowance0; nhả tight/branch/corner gain khi raw error quay về dù D còn outward. Position Kp boost0→35% vẫn là P đang chạy, không reset D hay ép dừng bánh. Carry/rejoin55; reacquire6ms, inner evidence16ms. Giữ narrow8ms riêng rồi shape4ms cho góc mới cả cùng/ngược chiều.
+- New comparator test: B43 outer steady85/25, B45 85/−24 với Kp12/Kd0 và e2,5; raw return trong khi D còn outward cho B45 85/0, chứng minh nhả reverse nhưng không chứng minh RPM hoặc drift. Giữ motor reversal guard/ADC/SWD/GAP/Flash.
+- Full suite106197 integration +10969 standalone ARM assertions,26 Python tests pass; Keil0/0. Chưa đo lap B45. Xem `outer-grip-b45.md`; mục lịch sử phía dưới không ghi đè policy này.
+
+## ERR-074 — B43 khóa trợ lực trong ALIGN, chưa có Cruise riêng và white timer recovery không tăng
+
+- Owner báo B43 mượt, đạt15,5s, Base50 ổn hơn55; chicane vẫn tốn thời gian. Đây là phản hồi thực tế, không quy toàn bộ lap cho một nhánh code.
+- Rà source: tight/branch bias/corner gain chỉ cho TRACK; post-turn chỉ nhận góc ngược chiều; recovery không tăng lost_ms; menu ép Straight=Base sau mọi lần chỉnh PID. Nếu chỉ đổi ngưỡng20ms hoặc bật Cruise trong controller, hai chỗ sau sẽ khiến policy không hoạt động đúng.
+- B44 mở trợ lực trong ALIGN, defaultreacquire8ms/inner evidence20ms; nhận góc mới cùng/ngược chiều sau8ms narrow valid riêng rồi shape4ms. Invalid/short/broad không gia hạn budget theo nhánh góc mới.
+- White duration trong recovery cập nhật riêng với deadline1200ms;64/−22 ở entry/nonwhite,58/−40 sau20ms trắng. Default50/62/85, PID14/0/0,9; current central mask/error≤0,65 + stable80ms + không guard mới Cruise. Khi trả Base, bypass soft decel để dùng800 điểm PWM%/giây.
+- Preserve Straight khi edit PID/Base; clamp theo Base/Max. Giữ motor reversal guard, GAP, Flash layout và explicit Start.
+- Validation:106198 integration +9890 standalone ARM assertions,26 Python tests pass; Keil0/0. Backup B43 commit7f46854 và HEX trước sửa. Chưa đo lap B44; xem `chicane-cruise-b44.md`.
+
+Các mục phía dưới ghi lịch sử từng phiên bản.
+
 # Nhật ký lỗi và bài học triển khai
 
 Hiện tại: **B43 — B41 với asymmetric recovery swing**, xem

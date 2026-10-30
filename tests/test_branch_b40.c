@@ -28,19 +28,19 @@ void test_entry(void) {
     for(dt=1;dt<=4;++dt) for(sign=-1;sign<=1;sign+=2) {
         Warm(&s,&p,55); p.kd=0;
         for(i=0;i<20;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,dt);
-        CHECK(sign*s.last_correction>42.5f && sign*s.last_correction<42.7f);
+        CHECK(sign*s.last_correction>47.189f && sign*s.last_correction<47.191f);
         CHECK(s.left<=850 && s.right<=850 && s.left+s.right>0);
         Control_Step(&s,&p,sign*1400,1,sign>0?0xF8:0x1F,dt);
         CHECK(sign*s.last_correction<28); /* Clear return releases branch bias. */
         Warm(&s,&p,30); p.kd=0;
         for(i=0;i<20;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,dt);
-        CHECK(sign*s.last_correction>26.9f && sign*s.last_correction<27.1f);
+        CHECK(sign*s.last_correction>29.999f && sign*s.last_correction<30.001f);
         Warm(&s,&p,55); p.kp=p.ki=p.kd=0;
         for(i=0;i<20;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0xF8:0x1F,dt);
         CHECK(s.left==s.right && s.left>400 && s.left<550);
         Warm(&s,&p,55); p.kd=0;
         for(i=0;i<20;++i) Control_Step(&s,&p,sign*1500,1,sign>0?0x30:0x0C,dt);
-        CHECK(sign*s.last_correction>17.9f && sign*s.last_correction<18.1f);
+        CHECK(sign*s.last_correction>20.699f && sign*s.last_correction<20.701f);
     }
     /* A white dash or an old fragmented loss must not retain a stale D kick. */
     Warm(&s,&p,55); Control_Step(&s,&p,0,0,0,2);

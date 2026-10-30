@@ -1,3 +1,25 @@
+> **B45 hiện tại (30/10/2026)**: [Outer-eye grip](outer-grip-b45.md). Nền B43, defaults55/85, PID12/0/0,9; chưa đo B45 trên xe. Owner báo B43 15,5s, B44 16,3s.
+
+## Kết quả B45
+
+- `scripts/test-control.ps1` pass: core44128 + IO48187 + motion13882 = **106197 integration ARM assertions**. Standalone94/4955/333/1840/60/808/716/2163 = **10969 assertions**; Python8 +18 = **26 tests** pass.
+- B45 standalone2163 cases link current B45 và archived B43 với cùng ControlState/parameters; kiểm isolated outer permission, strict raw/filtered return release, wrong-side/low-duty/Max/antiwindup, ALIGN không reserve, carry55/no boost5, cùng/ngược chiều sau narrow travel.
+- Giữ ba test image core/IO/motion và dead-strip từ harness B44 để đáp ứng map64KiB/20KiB và budget300M/60s mỗi entry; các luật firmware B44 không được giữ lại ngoài policy narrow travel được owner yêu cầu. Test fake peripheral không đo hardware timing hoặc động lực học.
+- `scripts/build.ps1`: Keil **0 Error / 0 Warning**; Code35120, RO1856, RW440, ZI10536. HEX kết thúc0x08009144, trước reserved log Flash0x0800C000.
+- `build/linefollower-B45.hex` SHA256: `48476CB6AEC486B0DA797A389DD9E874D1357452682CDD2E9FABDB65C4694D99`.
+- Record cục bộ: `build/b45-test-final.log`, `build/b45-build-result.log`, `build/outer-grip-b45-tests/command-comparison.csv`. Backup B44: `backups/B44-before-B45-20261030/`. B43/B44 HEX cũ được giữ riêng.
+
+> **B44 hiện tại (30/10/2026)**: [Chicane và Straight Cruise](chicane-cruise-b44.md). Profile50/62/85, PID14/0/0,9. B43 owner báo15,5s; chưa đo B44 trên xe.
+
+## Kết quả B44
+
+- `scripts/test-control.ps1` pass: core44128 + IO48188 + motion13882 = **106198 integration ARM assertions**. Standalone94/4955/365/1840/60/810/718/1048 = **9890 assertions**, trong đó1048 kiểm tra B44. Python parser/layout8 + receiver18 = **26 tests** pass.
+- B44 kiểm tra ALIGN corner authority, direction priority,8ms narrow travel rồi shape4ms ở cả hai chiều, negative cases broad/short/invalid, white boundary20ms, timeout/valid-first, cruise guard/Max/exit ramp và GAP sau Cruise.
+- Ba integration image dùng dead stripping để nằm trong map64KiB/20KiB và budget300M instruction/60s mỗi entry. Không tăng giới hạn emulator. Fake peripheral tests không đo thực tế motor/Flash timing.
+- `scripts/build.ps1`: Keil **0 Error / 0 Warning**; Code35948, RO1856, RW440, ZI10536. HEX kết thúc0x0800947C, trước log Flash0x0800C000.
+- `build/linefollower-B44.hex` SHA256: `B47BEE8A6013D72F727FEA6BE172E106C521D131AB6BE9DDD4D640DABE1A46D6`.
+- Backup B43 tại `backups/B43-before-B44-20261030/`. Kết quả log build/test cục bộ: `build/b44-build-result.log`, `build/b44-test-final.log`. Chưa nạp hoặc chạy B44 trên xe trong phiên này.
+
 > **B43 swing turn (30/10/2026)**: [B43](swing-turn-b43.md). Base55/Max85, Kp12/Ki0/Kd0.9.
 
 > **B42 active-eye (30/10/2026)**: [B42](active-eye-b42.md). Base55/Max85, Kp12/Ki0/**Kd0.10**.

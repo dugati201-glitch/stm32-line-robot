@@ -147,6 +147,10 @@ void test_entry(void)
     RunFixedBaseTests();
     RunDirectTurnTests();
     RunAmbiguousTests();
+    test_done();
+}
+void test_entry_motion(void)
+{
     RunRecoveryTests();
     RunSpeedTests();
     test_done();

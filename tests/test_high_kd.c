@@ -32,7 +32,7 @@ void test_entry(void)
     CHECK(Abs(s.last_correction)<12.0f && s.left>0 && s.right>0);
     Seed(&s,&p,0.12f,1);
     Control_Step(&s,&p,-500,1,0x08,2);
-    CHECK(Abs(s.last_correction+16.0f)<0.001f); /* 8ms raw D filter, with low-Kd shaping still bypassed. */
+    CHECK(Abs(s.last_correction+16.3f)<0.001f); /* 8ms raw D filter, with low-Kd shaping still bypassed. */
     Seed(&s,&p,0.9f,1); s.post_turn_ms=0; s.fast_exit=0; s.last_error=0;
     Control_Step(&s,&p,1000,1,0x30,2);
     CHECK(s.last_correction==42.5f && s.left==850 && s.right==0); /* Outside scoped shaping. */
@@ -41,7 +41,7 @@ void test_entry(void)
         for(i=0;i<64;++i) {
             int e=sign*((i&1U)?500:-500);
             Control_Step(&s,&p,(int16_t)e,1,e>0?0x10:0x08,dt);
-            CHECK(Abs(s.last_correction)<=6.001f+2.401f*dt);
+            CHECK(Abs(s.last_correction)<=6.301f+2.401f*dt);
             CHECK(s.mode==CONTROL_TRACK && s.target==55 && s.left>0 && s.right>0);
             CHECK(s.left<=850 && s.right<=850);
         }
@@ -49,17 +49,17 @@ void test_entry(void)
         s.last_error=sign*0.5f; s.derivative=sign*1000.0f;
         for(i=0;i<10;++i) {
             Control_Step(&s,&p,sign*500,1,sign>0?0x10:0x08,dt);
-            CHECK(Abs(s.last_correction-sign*6)<=34.001f);
+            CHECK(Abs(s.last_correction-sign*6.3f)<=34.001f);
         }
         /* A sign reversal discards old D immediately, then builds the new
          * sign; decreasing demand and Kd=0 must release without delay. */
         s.derivative=-sign*1000.0f;
         Control_Step(&s,&p,sign*500,1,sign>0?0x10:0x08,dt);
-        CHECK(sign*(s.last_correction-sign*6)<0);
-        CHECK(Abs(s.last_correction-sign*6)<=2.401f*dt);
+        CHECK(sign*(s.last_correction-sign*6.3f)<0);
+        CHECK(Abs(s.last_correction-sign*6.3f)<=2.401f*dt);
         p.kd=0;
         Control_Step(&s,&p,sign*500,1,sign>0?0x10:0x08,dt);
-        CHECK(Abs(s.last_correction-sign*6)<0.001f);
+        CHECK(Abs(s.last_correction-sign*6.3f)<0.001f);
         Control_Stop(&s,FAULT_UI);
         Control_Step(&s,&p,0,1,0x18,dt);
         CHECK(s.mode==CONTROL_FAULT && !s.left && !s.right);

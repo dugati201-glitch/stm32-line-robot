@@ -1,3 +1,45 @@
+CURRENT B45 (2026-10-30): owner reports B44 regressed16.3s vs B43 15.5s.
+Explicitly restore B43 first, then only requested B45 outer-grip/exit changes.
+Read docs/outer-grip-b45.md. B44 source/HEX/tests/hash backed up in
+backups/B44-before-B45-20261030.195 B43 archive paths byte-verified before edits.
+Defaults55/85,12/0/.9; no Cruise, B43 menu/estimator/driver/hardware restored.
+TurnOutput B43 one-stage near64/-22, white68/-30; carry=min(previous,55,Max),
+recenter/rejoin55, defaultalign6ms/inner-evidence16ms. ALIGN has no tight,
+reverse reserve, branch bias or corner gain; position Kp boost still applies.
+TRACK additionally grants reserve from current sign-matching outerC0/03 at
+abs(error)>=1.65, nonreturning raw step and filtered D. No pending/broad latch
+needed. Bounds follow current error sign; no-shape outer common reduction.20,
+broad.35, same24%/Max/duty weighting/antiwindup. Both return allowances0:
+returning raw step or filtered D releases tight/branch/corner gain immediately.
+Smooth position Kp factor1+.35*clamp(abs(e)/3.5), then existing corner gain.
+Keep8ms distinct narrow-valid travel then4ms shape for new same/opposite corner;
+invalid/ALIGN resets qualification;1200ms timeout/valid-first/GAP remain.
+Full suite106197 integration+10969 standalone ARM assertions+26Python passes;
+new2163-case B45 test links frozen B43 comparator. Keil0errors/0warnings.
+HEX48476CB6AEC486B0DA797A389DD9E874D1357452682CDD2E9FABDB65C4694D99.
+No measured B45 lap; PWM commands are not RPM, yaw, drift or lap proof.
+Earlier CURRENT blocks below are historical on conflict.
+
+CURRENT B44 (2026-10-30): owner reports B43 physically15.5s/smooth, Base50 more
+stable than55. Explicit authorization supersedes fixed-Base/ALIGN/old symmetric
+recovery and opposite-only corner-episode restrictions. Read docs/chicane-cruise-b44.md.
+Backup B43 commit7f46854/source/HEX/replay/hash in backups/B43-before-B44-20261030.
+Defaults Base50/Straight62/Max85,Kp14/Ki0/Kd.9,align8ms; inner evidence20ms.
+Observed corner assist enabled in TRACK and ALIGN; confirmed drive direction
+precedes stale centroid on ALIGN reloss. New episode of either sign needs8ms
+consecutive narrow valid travel (<=3eyes,no outer81), then4ms directional shape;
+broad frames cannot earn travel, invalid resets qualification. Keep timeout1200.
+Recovery64/-22 while nonwhite or white<=20ms; white>20ms58/-40, mirror/Max clip.
+lost_ms now updates during recovery as continuous blank time; recovery_ms remains
+independent budget. Carry min(previous,48,Max). Cruise62 only TRACK/stable80/current
+central mask/error<=.65/no corner/post/guard; otherwise Base immediately, PWM ramp800
+on Cruise exit overrides soft decel. Menu preserves Straight independently with
+Base/Max clamp; still5rows, no separate Straight edit. GAP/driver/SWD/Flash intact.
+Full suite106198 integration+9890 standalone ARM assertions+26Python passes; B44
+standalone1048. Test images split core/IO/motion with dead-strip, same map/budgets.
+Keil0errors/0warnings, HEX B44 hashB47BEE8A6013D72F727FEA6BE172E106C521D131AB6BE9DDD4D640DABE1A46D6.
+No physical B44 lap yet. Earlier CURRENT blocks below are historical on conflict.
+
 CURRENT B43 (2026-10-30): explicit owner authorization restores B41 and discards
 B42 active-eye trial after owner reports18s/jerky. Read docs/swing-turn-b43.md.
 B42 source/HEX/hash saved in backups/B42-before-B43-20261030; B42 review ZIP unchanged.
